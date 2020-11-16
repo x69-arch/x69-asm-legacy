@@ -1,9 +1,9 @@
 #[derive(Clone, Copy, Debug)]
 pub enum Token<'a> {
     Ident(&'a str),
+    Immediate(u8),
     Register(u8),
     Comma,
-    Comment(&'a str),
     Unknown(&'a str),
 }
 
@@ -37,7 +37,7 @@ impl<'a> Iterator for Lexer<'a> {
         
         // Get into the good al lexin state
         let (token, r) = match iter.next() {
-            Some((_, 'r')) => {
+            Some((_, 'r')) | Some((_, 'R')) => {
                 let (reg, remain) = take_while(&self.remain[1..], |c| c.is_ascii_digit());
                 let register = reg.parse::<u8>().map(Token::Register).unwrap_or(Token::Unknown(reg));
                 (register, remain)
@@ -49,8 +49,9 @@ impl<'a> Iterator for Lexer<'a> {
             
             Some((_, '/')) => {
                 if let Some((_, '/')) = iter.next() {
-                    let (c, r) = take_while(self.remain, |_| true /* c != '\n' */);
-                    (Token::Comment(c), r)
+                    let (_, r) = take_while(self.remain, |_| true /* c != '\n' */);
+                    self.remain = r;
+                    (self.next()?, self.remain)
                 } else if let Some((i, _)) = iter.next() {
                     let (t, r) = self.remain.split_at(i);
                     (Token::Unknown(t), r)
@@ -62,6 +63,12 @@ impl<'a> Iterator for Lexer<'a> {
             Some((_, c)) if c.is_ascii_alphabetic() => {
                 let (t, c) = take_while(self.remain, |c| c.is_ascii_alphabetic());
                 (Token::Ident(t), c)
+            },
+            
+            Some((_, c)) if c.is_ascii_digit() => {
+                let (i, remain) = take_while(self.remain, |c| c.is_ascii_digit());
+                let immediate = i.parse::<u8>().map(Token::Immediate).unwrap_or(Token::Unknown(i));
+                (immediate, remain)
             },
             
             Some((_, _)) => {

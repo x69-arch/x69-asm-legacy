@@ -40,11 +40,16 @@ fn main() {
                     file.read_to_string(&mut contents).expect("Failed to read from file");
                     
                     let mut assembly = Vec::with_capacity(contents.len() >> 4);
-                    
                     let err = codegen::assemble(contents.as_str(), &mut assembly);
                     if let Err(err) = err {
-                        println!("Parsing error: {}", err);
+                        println!("ERROR: {}", err);
+                        return;
                     }
+                    
+                    for byte in &assembly {
+                        print!("{:08b} ", byte);
+                    }
+                    println!();
                     
                     let output = File::create(output_file.clone());
                     match output {
