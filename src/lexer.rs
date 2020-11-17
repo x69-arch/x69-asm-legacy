@@ -1,7 +1,7 @@
 #[derive(Clone, Copy, Debug)]
 pub enum Token<'a> {
     Ident(&'a str),
-    Immediate(u8),
+    Immediate(u16),
     Register(u8),
     Comma,
     Unknown(&'a str),
@@ -67,7 +67,7 @@ impl<'a> Iterator for Lexer<'a> {
             
             Some((_, c)) if c.is_ascii_digit() => {
                 let (i, remain) = take_while(self.remain, |c| c.is_ascii_digit());
-                let immediate = i.parse::<u8>().map(Token::Immediate).unwrap_or(Token::Unknown(i));
+                let immediate = i.parse::<u16>().map(Token::Immediate).unwrap_or(Token::Unknown(i));
                 (immediate, remain)
             },
             

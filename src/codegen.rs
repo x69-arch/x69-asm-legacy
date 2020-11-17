@@ -1,3 +1,4 @@
+use crate::instruction::*;
 use crate::lexer::{Lexer, Token};
 pub type Result<T> = std::result::Result<T, String>;
 
@@ -14,184 +15,87 @@ impl Register {
     }
 }
 
-enum OperandMode {
-    NoParams,
-    OneRegister,
-    OneOrTwoRegisters,
-    OneRegisterAndImmediate,
-    TwoRegisters,
-    TwoRegistersOrImmediate,
-}
-
-enum RegisterMap {
-    AB,
-    BA,
-    AA,
-    BB,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum Instruction {
-    NOP,
-    CLR,
-    SER,
-    NOT,
-    TWO,
-    AND,
-    NND,
-    ORR,
-    NOR,
-    XOR,
-    XNR,
-    ADD,
-    ADC,
-    SUB,
-    SBC,
-    INC,
-    DEC,
-    MOV,
-    MVN,
-}
-impl Instruction {
-    #[inline(always)]
-    fn from_str(name: &str) -> Option<Self> {
-        match name {
-            "NOP" => Some(Self::NOP),
-            "CLR" => Some(Self::CLR),
-            "SER" => Some(Self::SER),
-            "NOT" => Some(Self::NOT),
-            "TWO" => Some(Self::TWO),
-            "AND" => Some(Self::AND),
-            "NND" => Some(Self::NND),
-            "ORR" => Some(Self::ORR),
-            "NOR" => Some(Self::NOR),
-            "XOR" => Some(Self::XOR),
-            "XNR" => Some(Self::XNR),
-            "ADD" => Some(Self::ADD),
-            "ADC" => Some(Self::ADC),
-            "SUB" => Some(Self::SUB),
-            "SBC" => Some(Self::SBC),
-            "INC" => Some(Self::INC),
-            "DEC" => Some(Self::DEC),
-            "MOV" => Some(Self::MOV),
-            "MVN" => Some(Self::MVN),
-            _ => None
-        }
-    }
-    #[inline(always)]
-    fn to_str(&self) -> &str {
-        match self {
-            Self::NOP => "NOP",
-            Self::CLR => "CLR",
-            Self::SER => "SER",
-            Self::NOT => "NOT",
-            Self::TWO => "TWO",
-            Self::AND => "AND",
-            Self::NND => "NND",
-            Self::ORR => "ORR",
-            Self::NOR => "NOR",
-            Self::XOR => "XOR",
-            Self::XNR => "XNR",
-            Self::ADD => "ADD",
-            Self::ADC => "ADC",
-            Self::SUB => "SUB",
-            Self::SBC => "SBC",
-            Self::INC => "INC",
-            Self::DEC => "DEC",
-            Self::MOV => "MOV",
-            Self::MVN => "MVN",
-        }
-    }
-    
-    #[inline(always)]
-    fn assemble_info(&self) -> (u8, OperandMode, RegisterMap) {
-        use OperandMode::*;
-        use RegisterMap::*;
-        
-        match self {
-            Self::CLR => (0b00100000, OneRegister, AA),
-            Self::SER => (0b00110000, OneRegister, AA),
-            
-            Self::NOT => (0b00100001, TwoRegistersOrImmediate, BA),
-            Self::TWO => (0b00110001, TwoRegistersOrImmediate, BA),
-            Self::AND => (0b00100010, TwoRegistersOrImmediate, BA),
-            Self::NND => (0b00110010, TwoRegistersOrImmediate, BA),
-            Self::ORR => (0b00100011, TwoRegistersOrImmediate, BA),
-            Self::NOR => (0b00110011, TwoRegistersOrImmediate, BA),
-            Self::XOR => (0b00100100, TwoRegistersOrImmediate, BA),
-            Self::XNR => (0b00110100, TwoRegistersOrImmediate, BA),
-            Self::ADD => (0b00100101, TwoRegistersOrImmediate, BA),
-            Self::ADC => (0b00110101, TwoRegistersOrImmediate, BA),
-            Self::SUB => (0b00100110, TwoRegistersOrImmediate, BA),
-            Self::SBC => (0b00110110, TwoRegistersOrImmediate, BA),
-            Self::INC => (0b00100111, OneOrTwoRegisters,       BA),
-            Self::DEC => (0b00110111, OneOrTwoRegisters,       BA),
-            Self::MOV => (0b00101000, TwoRegistersOrImmediate, BA),
-            Self::MVN => (0b00111000, TwoRegistersOrImmediate, BA),
-            
-            _ => (0, OperandMode::NoParams, RegisterMap::AB)
-        }
-    }
-}
-
 #[derive(Debug)]
 pub struct InstructionBuilder {
     line: usize,
     name: Instruction,
     a: Option<Register>,
     b: Option<Register>,
-    immediate: Option<u8>
+    immediate: Option<u16>
 }
 
 impl InstructionBuilder {
     fn assemble(&self, buffer: &mut Vec<u8>) -> Result<u8> {
         let asm_info = self.name.assemble_info();
         
-        let (a, b, i) = match asm_info.1 {
+        let (regs, i) = match asm_info.1 {
+            OperandMode::NoParams => (Some((Register(0), Register(0))), None),
+            
             OperandMode::OneRegister => match (self.a, self.b, self.immediate) {
-                (Some(a), None, None) => (a, a, None),
+                (Some(a), None, None) => (Some((a, a)), None),
                 _ => return Err(format!("Line {}: {} requires only one register", self.line, self.name.to_str())),
             },
             
+            OperandMode::OneRegisterAndImmediate => match (self.a, self.b, self.immediate) {
+                (Some(a), None, i) if i.is_some() => (Some((a, a)), i),
+                _ => return Err(format!("Line {}: {} requires only one register and one immediate", self.line, self.name.to_str())),
+            },
+            
             OperandMode::OneOrTwoRegisters => match (self.a, self.b, self.immediate) {
-                (Some(a), Some(b), None) => (a, b, None),
-                (Some(a), None, None) => (a, a, None),
+                (Some(a), Some(b), None) => (Some((a, b)), None),
+                (Some(a), None, None) => (Some((a, a)), None),
                 (.., Some(_)) => return Err(format!("Line {}: {} cannot accept an immediate", self.line, self.name.to_str())),
                 _ => return Err(format!("Line {}: {} requires at least one register", self.line, self.name.to_str())),
             },
             
+            OperandMode::TwoRegisters => match (self.a, self.b, self.immediate) {
+                (Some(a), Some(b), None) => (Some((a, b)), None),
+                _ => return Err(format!("Line {}: {} requires only two registers", self.line, self.name.to_str())),
+            },
+            
             OperandMode::TwoRegistersOrImmediate => match self.a {
                 Some(a) => match self.b {
-                    Some(b) => (a, b, self.immediate),
+                    Some(b) => (Some((a, b)), self.immediate),
                     None => match self.immediate {
-                        Some(_) => (a, a, self.immediate),
+                        Some(i) => (Some((a, a)), Some(i)),
                         None => return Err(format!("Line {}: {} requires at least two operands", self.line, self.name.to_str())),
                     }
                 },
                 _ => return Err(format!("Line {}: {} requires at least two operands", self.line, self.name.to_str())),
             },
             
-            _ => return Err(format!("Line {}: {} NOT IMPLEMENTED LOL", self.line, self.name.to_str())),
+            //_ => return Err(format!("Line {}: {} NOT IMPLEMENTED LOL", self.line, self.name.to_str())),
         };
         
-        let (a, b) = match asm_info.2 {
-            RegisterMap::AA => (a, a),
-            RegisterMap::AB => (a, b),
-            RegisterMap::BA => (b, a),
-            RegisterMap::BB => (b, b),
+        let lo_byte = asm_info.0;
+        let (mid_byte, hi_byte) = match regs {
+            Some((a, b)) => {
+                let (a, b) = match asm_info.2 {
+                    RegisterMap::AA => (a, a),
+                    RegisterMap::AB => (a, b),
+                    RegisterMap::BA => (b, a),
+                    // RegisterMap::BB => (b, b),
+                };
+                ((a.0 & 0x0f) | (b.0 << 4 & 0xF0), i.map(|i| i as u8))
+            },
+            None => {
+                match i {
+                    // Split high and low of 16 bit immediate
+                    Some(i) => ((i & 0x00FF) as u8, Some((i & 0xFF00 >> 4) as u8)),
+                    None => return Err(format!("Line {}: {} requires a 16 bit immedaite", self.line, self.name.to_str()))
+                }
+            }
         };
         
-        let lo = asm_info.0;
-        let hi = (a.0 & 0x0f) | (b.0 << 4 & 0xF0);
-        
-        if let Some(immediate) = i {
-            buffer.push(lo | 0b10000000);
-            buffer.push(hi);
-            buffer.push(immediate);
+        if let Some(hi_byte) = hi_byte {
+            // Set the immediate bit
+            buffer.push(lo_byte | 0b10000000);
+            buffer.push(mid_byte);
+            buffer.push(hi_byte);
             Ok(3)
         } else {
-            buffer.push(lo);
-            buffer.push(hi);
+            buffer.push(lo_byte);
+            buffer.push(mid_byte);
             Ok(2)
         }
     }
@@ -229,6 +133,13 @@ pub fn parse_line(lexer: &mut Lexer, line: usize) -> Result<InstructionBuilder> 
                     output.a.replace(Register::from_u8(r)
                         .ok_or_else(|| format!("Line {}: Register out of bounds: {}", line, r))?);
                 },
+                Some(Token::Immediate(i)) => {
+                    output.immediate.replace(i);
+                    match lexer.next() {
+                        Some(token) => return Err(format!("Line {}: Unexpected token after immediate: {:?}", line, token)),
+                        None => return Ok(output),
+                    }
+                },
                 Some(token) => return Err(format!("Line {}: Expected register as first operand, got: {:?}", line, token)),
                 None => return Ok(output),
             }
@@ -247,7 +158,10 @@ pub fn parse_line(lexer: &mut Lexer, line: usize) -> Result<InstructionBuilder> 
                         .ok_or_else(|| format!("Line {}: Register out of bounds: {}", line, r))?);
                 },
                 Some(Token::Immediate(i)) => {
-                    output.immediate.replace(i);
+                    if i > u8::MAX as u16 {
+                        println!("WARNING: Line {}: immediate will be truncated to 8 bit value", line);
+                    }
+                    output.immediate.replace(i & 0xFF);
                     match lexer.next() {
                         Some(token) => return Err(format!("Line {}: Unexpected token after immediate operand: {:?}", line, token)),
                         None => return Ok(output),
@@ -266,7 +180,10 @@ pub fn parse_line(lexer: &mut Lexer, line: usize) -> Result<InstructionBuilder> 
             
             match lexer.next() {
                 Some(Token::Immediate(i)) => {
-                    output.immediate.replace(i);
+                    if i > u8::MAX as u16 {
+                        println!("WARNING: Line {}: immediate will be truncated to 8 bit value", line);
+                    }
+                    output.immediate.replace(i & 0xFF);
                     match lexer.next() {
                         Some(token) => Err(format!("Line {}: Unexpected token after third operand: {:?}", line, token)),
                         None => Ok(output),
@@ -288,4 +205,46 @@ pub fn assemble(source: &str, buffer: &mut Vec<u8>) -> Result<u8> {
         written += instruction.assemble(buffer)?;
     }
     Ok(written)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    fn assemble_string(source: &str) -> Vec<u8> {
+        let mut buffer = Vec::new();
+        assemble(source, &mut buffer).unwrap();
+        buffer
+    }
+    
+    #[test]
+    fn simple_add() {
+        let buffer = assemble_string("add r15, r0, 123");
+        assert_eq!(buffer[0], 0b10100101);
+        assert_eq!(buffer[1], 0xF0);
+        assert_eq!(buffer[2], 123);
+        
+        let buffer = assemble_string("ADD r1, 69");
+        assert_eq!(buffer[0], 0b10100101);
+        assert_eq!(buffer[1], 0x11);
+        assert_eq!(buffer[2], 69);
+        
+        let buffer = assemble_string("AdD r1, r2");
+        assert_eq!(buffer[0], 0b00100101);
+        assert_eq!(buffer[1], 0x12);
+    }
+    
+    #[test]
+    fn nop() {
+        let buffer = assemble_string("nop");
+        assert_eq!(buffer[0], 0b00101001);
+        assert_eq!(buffer[1], 0x00);
+    }
+    
+    #[test]
+    fn lpc() {
+        let buffer = assemble_string("lpc r15, r0");
+        assert_eq!(buffer[0], 0b01000100);
+        assert_eq!(buffer[1], 0x0F);
+    }
 }

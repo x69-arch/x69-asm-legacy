@@ -1,4 +1,5 @@
 mod codegen;
+mod instruction;
 mod lexer;
 
 use std::fs::File;
