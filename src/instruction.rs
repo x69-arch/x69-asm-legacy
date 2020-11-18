@@ -1,4 +1,4 @@
-
+#[derive(Clone, Copy, Debug)]
 pub enum OperandMode {
     NoParams,                // NOP
     OneRegister,             // CLR R1
@@ -6,8 +6,12 @@ pub enum OperandMode {
     OneRegisterAndImmediate, // SET R1, 69
     TwoRegisters,            // LPC R0, R1
     TwoRegistersOrImmediate, // ADD R1, R2; ADD R1, 69
+    
+    LongImmediate, // JMP 1234
+    TwoRegistersOrLongBitImmediate, // JMP 1234; JMP R1, R2
 }
 
+#[derive(Clone, Copy, Debug)]
 pub enum RegisterMap {
     AB,
     BA,
@@ -16,7 +20,7 @@ pub enum RegisterMap {
     // BB,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, utils::ToFromString)]
 pub enum Instruction {
     // ALU Operations
     NOP,
@@ -44,69 +48,9 @@ pub enum Instruction {
     
     // CPU Operations
     LPC,
+    JMP,
 }
 impl Instruction {
-    #[inline(always)]
-    pub fn from_str(name: &str) -> Option<Self> {
-        match name {
-            "NOP" => Some(Self::NOP),
-            "CLR" => Some(Self::CLR),
-            "SER" => Some(Self::SER),
-            "NOT" => Some(Self::NOT),
-            "TWO" => Some(Self::TWO),
-            "AND" => Some(Self::AND),
-            "NND" => Some(Self::NND),
-            "ORR" => Some(Self::ORR),
-            "NOR" => Some(Self::NOR),
-            "XOR" => Some(Self::XOR),
-            "XNR" => Some(Self::XNR),
-            "ADD" => Some(Self::ADD),
-            "ADC" => Some(Self::ADC),
-            "SUB" => Some(Self::SUB),
-            "SBC" => Some(Self::SBC),
-            "INC" => Some(Self::INC),
-            "DEC" => Some(Self::DEC),
-            "MOV" => Some(Self::MOV),
-            "MVN" => Some(Self::MVN),
-            "SET" => Some(Self::SET),
-            "STN" => Some(Self::STN),
-            "CMP" => Some(Self::CMP),
-            
-            "LPC" => Some(Self::LPC),
-            _ => None
-        }
-    }
-    
-    #[inline(always)]
-    pub fn to_str(&self) -> &str {
-        match self {
-            Self::NOP => "NOP",
-            Self::CLR => "CLR",
-            Self::SER => "SER",
-            Self::NOT => "NOT",
-            Self::TWO => "TWO",
-            Self::AND => "AND",
-            Self::NND => "NND",
-            Self::ORR => "ORR",
-            Self::NOR => "NOR",
-            Self::XOR => "XOR",
-            Self::XNR => "XNR",
-            Self::ADD => "ADD",
-            Self::ADC => "ADC",
-            Self::SUB => "SUB",
-            Self::SBC => "SBC",
-            Self::INC => "INC",
-            Self::DEC => "DEC",
-            Self::MOV => "MOV",
-            Self::MVN => "MVN",
-            Self::SET => "SET",
-            Self::STN => "STN",
-            Self::CMP => "CMP",
-            
-            Self::LPC => "LPC",
-        }
-    }
-    
     #[inline(always)]
     pub fn assemble_info(&self) -> (u8, OperandMode, RegisterMap) {
         use OperandMode::*;
@@ -135,7 +79,8 @@ impl Instruction {
             Self::STN => (0b00111001, OneRegisterAndImmediate, AA),
             Self::CMP => (0b00101010, TwoRegisters,            AB),
             
-            Self::LPC => (0b01000100, TwoRegisters, AB)
+            Self::LPC => (0b01000100, TwoRegisters, AB),
+            Self::JMP => (0b01000000, TwoRegistersOrLongBitImmediate, AB)
         }
     }
 }

@@ -1,3 +1,5 @@
+extern crate utils;
+
 mod codegen;
 mod instruction;
 mod lexer;

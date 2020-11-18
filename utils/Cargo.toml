@@ -1,8 +1,12 @@
 [package]
-name = "assembler"
+name = "utils"
 version = "0.1.0"
 authors = ["Zachary Wells <8bitslime@gmail.com>"]
 edition = "2018"
 
+[lib]
+proc-macro = true
+
 [dependencies]
-utils = {version = "0.1.0", path = "utils/"}
+syn = {version = "1.0.0", features = ["extra-traits"]}
+quote = "1.0.0"

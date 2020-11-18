@@ -64,6 +64,17 @@ impl InstructionBuilder {
                 _ => return Err(format!("Line {}: {} requires at least two operands", self.line, self.name.to_str())),
             },
             
+            OperandMode::LongImmediate => match (self.a, self.b, self.immediate) {
+                (None, None, Some(i)) => (None, Some(i)),
+                _ => return Err(format!("Line {}: {} only requies a long immediate", self.line, self.name.to_str()))
+            },
+            
+            OperandMode::TwoRegistersOrLongBitImmediate => match (self.a, self.b, self.immediate) {
+                (Some(a), Some(b), None) => (Some((a, b)), None),
+                (None, None, Some(i)) => (None, Some(i)),
+                _ => return Err(format!("Line {}: {} requires two registers or a long immediate", self.line, self.name.to_str()))
+            }
+            
             //_ => return Err(format!("Line {}: {} NOT IMPLEMENTED LOL", self.line, self.name.to_str())),
         };
         
@@ -81,8 +92,8 @@ impl InstructionBuilder {
             None => {
                 match i {
                     // Split high and low of 16 bit immediate
-                    Some(i) => ((i & 0x00FF) as u8, Some((i & 0xFF00 >> 4) as u8)),
-                    None => return Err(format!("Line {}: {} requires a 16 bit immedaite", self.line, self.name.to_str()))
+                    Some(i) => ((i & 0xFF) as u8, Some((i >> 8) as u8)),
+                    None => return Err(format!("Line {}: {} requires a long immedaite", self.line, self.name.to_str()))
                 }
             }
         };
@@ -210,7 +221,6 @@ pub fn assemble(source: &str, buffer: &mut Vec<u8>) -> Result<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
     fn assemble_string(source: &str) -> Vec<u8> {
         let mut buffer = Vec::new();
         assemble(source, &mut buffer).unwrap();
@@ -246,5 +256,17 @@ mod tests {
         let buffer = assemble_string("lpc r15, r0");
         assert_eq!(buffer[0], 0b01000100);
         assert_eq!(buffer[1], 0x0F);
+    }
+    
+    #[test]
+    fn jmp() {
+        let buffer = assemble_string("jmp r0, r15");
+        assert_eq!(buffer[0], 0b01000000);
+        assert_eq!(buffer[1], 0xF0);
+        
+        let buffer = assemble_string("jmp 6969");
+        assert_eq!(buffer[0], 0b11000000);
+        assert_eq!(buffer[1], (6969 & 0xFF) as u8);
+        assert_eq!(buffer[2], (6969 >> 8)   as u8);
     }
 }
