@@ -1,5 +1,5 @@
 use crate::instruction::RegisterMap;
-use crate::parser::{Line, LineData, Parameters};
+use crate::parser::{Line, LineData, Log, Parameters};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Register(u8);
@@ -14,11 +14,19 @@ impl Register {
     }
 }
 
-pub fn assemble_lines(lines: &[Line], buffer: &mut Vec<u8>) {
+pub fn assemble_lines(lines: &[Line], logs: &mut Vec<Log>) -> Vec<u8> {
+    let mut buffer = Vec::new();
+    let mut link_table = std::collections::HashMap::<String, usize>::new();
+    let mut unresolved = Vec::new();
+    
     for line in lines {
         match &line.data {
             // TODO: Create link table
-            LineData::Label(_) => {},
+            LineData::Label(name) => {
+                if let Some(_label) = link_table.insert(name.clone(), buffer.len()) {
+                    logs.push(Log::Error(line.line, format!("symbol {} declared multiple times", name)));
+                }
+            },
             
             LineData::Instruction {name, params} => {
                 let asm_info = name.assemble_info();
@@ -26,10 +34,12 @@ pub fn assemble_lines(lines: &[Line], buffer: &mut Vec<u8>) {
                 enum Usage {
                     Register(Register, Register, Option<u8>),
                     LongImmidiate(u16),
+                    Unresolved(String),
                 };
                 
                 let usage: Usage = match *params {
                     Parameters::None => Usage::Register(Register(0), Register(0), None),
+                    Parameters::Label(ref label) => Usage::Unresolved(label.clone()),
                     Parameters::OneRegister(a) => Usage::Register(a, a, None),
                     Parameters::LongImmediate(i) => Usage::LongImmidiate(i),
                     Parameters::TwoRegisters(a, b) => Usage::Register(a, b, None),
@@ -60,28 +70,50 @@ pub fn assemble_lines(lines: &[Line], buffer: &mut Vec<u8>) {
                         buffer.push(asm_info.0 | 0b10000000);
                         buffer.push((i & 0xFF) as u8);
                         buffer.push((i >> 8) as u8);
-                    }
+                    },
+                    
+                    // Support for labels
+                    Usage::Unresolved(label) => {
+                        buffer.push(asm_info.0 | 0b10000000);
+                        // Temporary data
+                        unresolved.push((label, buffer.len(), line.line));
+                        buffer.push(0);
+                        buffer.push(0);
+                    },
                 };
             }
         }
     }
+    
+    for link in unresolved {
+        if let Some(location) = link_table.get(&link.0) {
+            let offset = *location as u16;
+            let lo = (offset & 0xFF) as u8;
+            let hi = (offset >> 8) as u8;
+            buffer[link.1] = lo;
+            buffer[link.1 + 1] = hi;
+        } else {
+            logs.push(Log::Error(link.2, format!("unresolved symbol: {}", link.0)));
+        }
+    }
+    
+    buffer
 }
 
 #[cfg(test)]
 mod tests {
     use crate::parser::parse;
-    use super::assemble_lines;
+    use crate::codegen::assemble_lines;
     fn assemble_string(source: &str) -> Vec<u8> {
-        let (lines, logs) = parse(source);
+        let (lines, mut logs) = parse(source);
+        let assembly = assemble_lines(&lines, &mut logs);
         
         // Print out for debugging purposes
         for log in logs {
             println!("{}", log);
         }
         
-        let mut buffer = Vec::new();
-        assemble_lines(&lines, &mut buffer);
-        buffer
+        assembly
     }
     
     #[test]
@@ -125,5 +157,28 @@ mod tests {
         assert_eq!(buffer[0], 0b11000010);
         assert_eq!(buffer[1], (6969 & 0xFF) as u8);
         assert_eq!(buffer[2], (6969 >> 8)   as u8);
+    }
+    
+    #[test]
+    fn label() {
+        let labels = assemble_string("
+            set r0, 1
+            mov r1, r0
+        _loop:
+            add r1, r0
+            add r0, r1
+            call _loop
+        ");
+        
+        let basic = assemble_string("
+            set r0, 1
+            mov r1, r0
+            add r1, r0
+            add r0, r1
+            call 5
+        ");
+        
+        // Both codes should output identical binaries
+        assert_eq!(basic, labels);
     }
 }

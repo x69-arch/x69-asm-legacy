@@ -21,11 +21,13 @@ pub fn to_from_string(input: TokenStream) -> TokenStream {
     
     let generated = quote! {
         impl #name {
+            #[inline(always)]
             pub fn to_str(&self) -> &'static str {
                 match self {
                     #(Self::#variants => stringify!(#variants)),*
                 }
             }
+            #[inline(always)]
             pub fn from_str(string: &str) -> Option<Self> {
                 match string {
                     #(stringify!(#variants) => Some(Self::#variants),)*

@@ -49,8 +49,12 @@ pub enum Instruction {
     // CPU Operations
     LPC,
     JMP,
+    JMPZ,
+    JMPNZ,
     RJMP,
     CALL,
+    CALLZ,
+    CALLNZ,
     RCLL,
 }
 impl Instruction {
@@ -84,8 +88,12 @@ impl Instruction {
             
             Self::LPC =>  (0b01000100, TwoRegisters, AB),
             Self::JMP =>  (0b01000000, TwoRegistersOrLongImmediate, AB),
+            Self::JMPZ => (0b01100000, TwoRegistersOrLongImmediate, AB),
+            Self::JMPNZ => (0b01110000, TwoRegistersOrLongImmediate, AB),
             Self::RJMP => (0b01000010, TwoRegistersOrLongImmediate, AB),
             Self::CALL => (0b01000001, TwoRegistersOrLongImmediate, AB),
+            Self::CALLZ => (0b01100001, TwoRegistersOrLongImmediate, AB),
+            Self::CALLNZ => (0b01110001, TwoRegistersOrLongImmediate, AB),
             Self::RCLL => (0b01000011, TwoRegistersOrLongImmediate, AB),
         }
     }

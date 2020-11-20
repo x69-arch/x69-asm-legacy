@@ -43,22 +43,6 @@ fn main() {
                     let mut contents = String::new();
                     file.read_to_string(&mut contents).expect("Failed to read from file");
                     
-                    // Code parsing
-                    let (lines, logs) = parser::parse(&contents);
-                    
-                    if !logs.is_empty() {
-                        println!("{} messages generates:", logs.len());
-                        let mut error = false;
-                        for log in logs {
-                            println!("{}", log);
-                            error |= log.is_error();
-                        }
-                        if error {
-                            println!("Aborting due to previous errors...");
-                            return;
-                        }
-                    }
-                    
                     let output_file = match output_file {
                         Some(file_name) => file_name,
                         None => {
@@ -71,9 +55,24 @@ fn main() {
                     match output {
                         Ok(mut output) => {
                             // Code assembling
-                            let mut assembly = Vec::with_capacity(contents.len() >> 4);
-                            codegen::assemble_lines(&lines, &mut assembly);
-                            output.write_all(assembly.as_slice()).expect("Failed to write assembly to file");
+                            // Code parsing
+                            let (lines, mut logs) = parser::parse(&contents);
+                            let assembly = codegen::assemble_lines(&lines, &mut logs);
+                            
+                            if !logs.is_empty() {
+                                println!("{} message{} generated:", match logs.len() { 1 => "", _ => "s"}, logs.len());
+                                let mut error = false;
+                                for log in logs {
+                                    println!("{}", log);
+                                    error |= log.is_error();
+                                }
+                                if error {
+                                    println!("Aborting due to previous errors...");
+                                    return;
+                                }
+                            }
+                            
+                            output.write_all(assembly.as_slice()).expect("Failed to write binary to file");
                         },
                         
                         Err(err) => {

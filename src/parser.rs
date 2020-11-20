@@ -15,8 +15,8 @@ impl Log {
 impl std::fmt::Display for Log {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Warning(line, msg) => write!(f, "WARNING: Line {}: {}", line, msg),
-            Self::Error(line, msg) => write!(f, "ERROR: Line {}: {}", line, msg),
+            Self::Warning(line, msg) => write!(f, "WARNING: Line {}: {}", line + 1, msg),
+            Self::Error(line, msg) => write!(f, "ERROR: Line {}: {}", line + 1, msg),
         }
     }
 }
@@ -24,7 +24,7 @@ impl std::fmt::Display for Log {
 #[derive(Clone, Debug)]
 pub enum Parameters {
     None,
-    // TODO: Label(String),
+    Label(String),
     LongImmediate(u16),
     OneRegister(Register),
     TwoRegisters(Register, Register),
@@ -243,6 +243,10 @@ pub fn parse(source: &str) -> (Vec<Line>, Vec<Log>) {
                             Some(Token::Immediate(i)) => match lexer.next() {
                                 None => push_instruction!(name, Parameters::LongImmediate(i)),
                                 Some(token) => log_error!("unexpected token after immediate: {:?}", token)
+                            },
+                            Some(Token::Ident(l)) => match lexer.next() {
+                                None => push_instruction!(name, Parameters::Label(l.to_owned())),
+                                Some(token) => log_error!("unexpected token after label: {:?}", token)
                             },
                             Some(token) => log_error!("{} expects two registers, got: {:?}", name.to_str(), token),
                             None => log_error!("{} expects two registers", name.to_str()),
