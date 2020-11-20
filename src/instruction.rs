@@ -2,13 +2,13 @@
 pub enum OperandMode {
     NoParams,                // NOP
     OneRegister,             // CLR R1
-    OneOrTwoRegisters,       // INC R1, R1; INC R1
+    OneOrTwoRegisters,       // INC R1, R1;  INC R1
     OneRegisterAndImmediate, // SET R1, 69
     TwoRegisters,            // LPC R0, R1
-    TwoRegistersOrImmediate, // ADD R1, R2; ADD R1, 69
+    TwoRegistersOrImmediate, // ADD R1, R2;  ADD R1, 69;  ADD R0, R1, 123
     
-    LongImmediate, // JMP 1234
-    TwoRegistersOrLongBitImmediate, // JMP 1234; JMP R1, R2
+    // LongImmediate, // JMP 1234
+    TwoRegistersOrLongImmediate, // JMP 1234;  JMP R1, R2
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -49,6 +49,9 @@ pub enum Instruction {
     // CPU Operations
     LPC,
     JMP,
+    RJMP,
+    CALL,
+    RCLL,
 }
 impl Instruction {
     #[inline(always)]
@@ -79,8 +82,11 @@ impl Instruction {
             Self::STN => (0b00111001, OneRegisterAndImmediate, AA),
             Self::CMP => (0b00101010, TwoRegisters,            AB),
             
-            Self::LPC => (0b01000100, TwoRegisters, AB),
-            Self::JMP => (0b01000000, TwoRegistersOrLongBitImmediate, AB)
+            Self::LPC =>  (0b01000100, TwoRegisters, AB),
+            Self::JMP =>  (0b01000000, TwoRegistersOrLongImmediate, AB),
+            Self::RJMP => (0b01000010, TwoRegistersOrLongImmediate, AB),
+            Self::CALL => (0b01000001, TwoRegistersOrLongImmediate, AB),
+            Self::RCLL => (0b01000011, TwoRegistersOrLongImmediate, AB),
         }
     }
 }
