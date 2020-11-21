@@ -3,8 +3,8 @@ pub enum Token<'a> {
     Ident(&'a str),
     Label(&'a str),
     Directive(&'a str),
-    Immediate(u16),
-    Register(u8),
+    Immediate(&'a str),
+    Register(&'a str),
     Comma,
     Unknown(&'a str),
 }
@@ -45,7 +45,7 @@ impl<'a> Iterator for Lexer<'a> {
         let (token, r) = match iter.next() {
             Some((_, 'r')) | Some((_, 'R')) => {
                 let (reg, remain) = take_while(&self.remain[1..], |c| c.is_ascii_digit());
-                if let Ok(reg) = reg.parse::<u8>() {
+                if !reg.is_empty() {
                     (Token::Register(reg), remain)
                 } else {
                     let (string, remain) = take_while(self.remain, label_chars);
@@ -59,7 +59,6 @@ impl<'a> Iterator for Lexer<'a> {
             
             Some((_, '.')) => {
                 let (string, remain) = take_while(&self.remain[1..], |c| c.is_ascii_alphabetic());
-                println!("director: {}", string);
                 (Token::Directive(string), remain)
             },
             
@@ -89,10 +88,37 @@ impl<'a> Iterator for Lexer<'a> {
                 }
             },
             
+            // Number literals
             Some((_, c)) if c.is_ascii_digit() => {
-                let (i, remain) = take_while(self.remain, |c| c.is_ascii_digit());
-                let immediate = i.parse::<u16>().map(Token::Immediate).unwrap_or(Token::Unknown(i));
-                (immediate, remain)
+                if c == '0' {
+                    match (&self.remain[1..]).chars().next() {
+                        // Hex literal
+                        Some('x') => {
+                            let (hex, remain) = take_while(&self.remain[2..], |c| c.is_ascii_hexdigit());
+                            let stop = hex.len() + 2;
+                            (Token::Immediate(&self.remain[..stop]), remain)
+                        }
+                        
+                        // Binary literal
+                        Some('b') => {
+                            let (binary, remain) = take_while(&self.remain[2..], |c| c == '1' || c == '0');
+                            let stop = binary.len() + 2;
+                            (Token::Immediate(&self.remain[..stop]), remain)
+                        }
+                        
+                        // Regular number with leading zero
+                        Some(c) if c.is_ascii_digit() => {
+                            let (decimal, remain) = take_while(&self.remain[2..], |c| c.is_ascii_digit());
+                            let stop = decimal.len() + 2;
+                            (Token::Immediate(&self.remain[..stop]), remain)
+                        }
+                        
+                        _ => (Token::Unknown(&self.remain[..2]), &self.remain[2..])
+                    }
+                } else {
+                    let (i, remain) = take_while(self.remain, |c| c.is_ascii_digit());
+                    (Token::Immediate(i), remain)
+                }
             },
             
             Some((_, _)) => {

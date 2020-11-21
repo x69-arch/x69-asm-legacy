@@ -16,7 +16,7 @@ impl std::fmt::Display for Log {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Warning(line, msg) => write!(f, "WARNING: Line {}: {}", line + 1, msg),
-            Self::Error(line, msg) => write!(f, "ERROR: Line {}: {}", line + 1, msg),
+            Self::Error(line, msg) => write!(f,   "ERROR:   Line {}: {}", line + 1, msg),
         }
     }
 }
@@ -77,20 +77,66 @@ pub fn parse(source: &str) -> (Vec<Line>, Vec<Log>) {
         };
         // Creates a register or logs and error and returns to start
         macro_rules! make_register {
-            ($reg:ident) => {
-                match Register::from_u8($reg) {
-                    Some(reg) => reg,
-                    None => log_error!("register out of bounds: {}", $reg),
+            ($reg:ident) => {{
+                match $reg.parse::<u8>() {
+                    Ok(reg) => {
+                        match Register::from_u8(reg) {
+                            Some(r) => r,
+                            None => log_error!("register out of bounds: {}", $reg),
+                        }
+                    },
+                    Err(..) => log_error!("register out of bounds: {}", $reg),
                 }
-            }
+            }}
         }
-        // Create an 8bit immediate, warning of truncation
-        macro_rules! make_short {
-            ($im:ident) => {{
-                if $im > u8::MAX as u16 {
-                    logs.push(Log::Warning(line, format!("immediate value {} will be truncated to 8 bits", $im)));
+        // Turn immediate token into the integer of type `int`
+        macro_rules! make_int {
+            ($im:ident, $int:ident) => {{
+                const BITS: usize = std::mem::size_of::<$int>() * 8;
+                let mut chars = $im.chars();
+                let parsed = if let Some('0') = chars.next() {
+                    let mut offset = 2;
+                    match chars.next() {
+                        Some('x') => {
+                            // String truncation logic
+                            if $im.len() > BITS / 4 + 2 {
+                                offset += $im.len() - BITS / 4 - 2;
+                                // Grammar is very important to me
+                                let bits = BITS.to_string();
+                                let indefinite = match bits.as_bytes()[0] {
+                                    b'8' => "an",
+                                    _ => "a",
+                                };
+                                logs.push(Log::Warning(line, format!("immediate {} will be truncated to {} {}-bit value", $im, indefinite, bits)));
+                            }
+                            $int::from_str_radix(&$im[offset..], 16)
+                        },
+                        
+                        Some('b') => {
+                            // String trunctation logic
+                            if $im.len() > BITS + 2 {
+                                offset += $im.len() - BITS - 2;
+                                // Grammar is very important to me
+                                let bits = format!("{}", BITS);
+                                let indefinite = match bits.as_bytes()[0] {
+                                    b'8' => "an",
+                                    _ => "a",
+                                };
+                                logs.push(Log::Warning(line, format!("immediate {} will be truncated to {} {}-bit value", $im, indefinite, bits)));
+                            }
+                            $int::from_str_radix(&$im[offset..], 2)
+                        },
+                        
+                        _ => $int::from_str_radix($im, 10),
+                    }
+                } else {
+                    $int::from_str_radix($im, 10)
+                };
+                
+                match parsed {
+                    Ok(i) => i,
+                    Err(err) => log_error!("could not parse {}: {}", $im, err)
                 }
-                ($im & 0xFF) as u8
             }}
         }
         
@@ -100,7 +146,6 @@ pub fn parse(source: &str) -> (Vec<Line>, Vec<Log>) {
         match lexer.next() {
             // Parsing label
             Some(Token::Label(l)) => {
-                // Takes the name of the label without the trailing ':'
                 let data = LineData::Label(l.to_owned());
                 match lexer.next() {
                     None => lines.push(Line {line, data}),
@@ -169,7 +214,7 @@ pub fn parse(source: &str) -> (Vec<Line>, Vec<Log>) {
                             None => log_error!("{} expects one register and an immediate", name.to_str()),
                         }
                         let i = match lexer.next() {
-                            Some(Token::Immediate(i)) => make_short!(i),
+                            Some(Token::Immediate(i)) => make_int!(i, u8),
                             Some(token) => log_error!("expected a regsiter, got: {:?}", token),
                             None => log_error!("trailing ','s are not allowed"),
                         };
@@ -215,7 +260,7 @@ pub fn parse(source: &str) -> (Vec<Line>, Vec<Log>) {
                         let reg2 = match lexer.next() {
                             Some(Token::Register(r)) => make_register!(r),
                             Some(Token::Immediate(i)) => match lexer.next() {
-                                None => push_instruction!(name, Parameters::OneRegisterImmediate(reg1, make_short!(i))),
+                                None => push_instruction!(name, Parameters::OneRegisterImmediate(reg1, make_int!(i, u8))),
                                 Some(token) => log_error!("unexpected token after immediate: {:?}", token),
                             },
                             Some(token) => log_error!("expected a regsiter or an immediate, got: {:?}", token),
@@ -227,7 +272,7 @@ pub fn parse(source: &str) -> (Vec<Line>, Vec<Log>) {
                             Some(token) => log_error!("expected ',' after second register, got: {:?}", token),
                         }
                         let i = match lexer.next() {
-                            Some(Token::Immediate(i)) => make_short!(i),
+                            Some(Token::Immediate(i)) => make_int!(i, u8),
                             Some(token) => log_error!("expected an immediate, got: {:?}", token),
                             None => log_error!("{} expects two registers and an immediate", name.to_str()),
                         };
@@ -241,7 +286,7 @@ pub fn parse(source: &str) -> (Vec<Line>, Vec<Log>) {
                         let reg1 = match lexer.next() {
                             Some(Token::Register(r)) => make_register!(r),
                             Some(Token::Immediate(i)) => match lexer.next() {
-                                None => push_instruction!(name, Parameters::LongImmediate(i)),
+                                None => push_instruction!(name, Parameters::LongImmediate(make_int!(i, u16))),
                                 Some(token) => log_error!("unexpected token after immediate: {:?}", token)
                             },
                             Some(Token::Ident(l)) => match lexer.next() {

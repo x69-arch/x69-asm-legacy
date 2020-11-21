@@ -118,15 +118,17 @@ mod tests {
     
     #[test]
     fn simple_add() {
-        let buffer = assemble_string("add r15, r0, 123");
+        let buffer = assemble_string("add r15, r0, 0b10101");
         assert_eq!(buffer[0], 0b10100101);
         assert_eq!(buffer[1], 0xF0);
-        assert_eq!(buffer[2], 123);
+        assert_eq!(buffer[2], 0b10101);
         
-        let buffer = assemble_string("ADD r1, 69");
+        let buffer = assemble_string("ADD r1, 0xDEAD");
         assert_eq!(buffer[0], 0b10100101);
         assert_eq!(buffer[1], 0x11);
-        assert_eq!(buffer[2], 69);
+        
+        // Checking that the hex literal was properly truncated
+        assert_eq!(buffer[2], 0xAD);
         
         let buffer = assemble_string("AdD r1, r2");
         assert_eq!(buffer[0], 0b00100101);
