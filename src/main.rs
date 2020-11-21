@@ -51,27 +51,27 @@ fn main() {
                         }
                     };
                     
+                    // Code assembling
+                    // Code parsing
+                    let (lines, mut logs) = parser::parse(&contents);
+                    let assembly = codegen::assemble_lines(&lines, &mut logs);
+                    
+                    if !logs.is_empty() {
+                        println!("{} message{} generated:", logs.len(), match logs.len() { 1 => "", _ => "s"});
+                        let mut error = false;
+                        for log in logs {
+                            println!("{}", log);
+                            error |= log.is_error();
+                        }
+                        if error {
+                            println!("Aborting due to previous errors...");
+                            return;
+                        }
+                    }
+                    
                     let output = File::create(&output_file);
                     match output {
                         Ok(mut output) => {
-                            // Code assembling
-                            // Code parsing
-                            let (lines, mut logs) = parser::parse(&contents);
-                            let assembly = codegen::assemble_lines(&lines, &mut logs);
-                            
-                            if !logs.is_empty() {
-                                println!("{} message{} generated:", match logs.len() { 1 => "", _ => "s"}, logs.len());
-                                let mut error = false;
-                                for log in logs {
-                                    println!("{}", log);
-                                    error |= log.is_error();
-                                }
-                                if error {
-                                    println!("Aborting due to previous errors...");
-                                    return;
-                                }
-                            }
-                            
                             output.write_all(assembly.as_slice()).expect("Failed to write binary to file");
                         },
                         

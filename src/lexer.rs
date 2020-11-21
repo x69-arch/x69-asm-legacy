@@ -2,6 +2,7 @@
 pub enum Token<'a> {
     Ident(&'a str),
     Label(&'a str),
+    Directive(&'a str),
     Immediate(u16),
     Register(u8),
     Comma,
@@ -54,6 +55,12 @@ impl<'a> Iterator for Lexer<'a> {
                         (Token::Ident(string), remain)
                     }
                 }
+            },
+            
+            Some((_, '.')) => {
+                let (string, remain) = take_while(&self.remain[1..], |c| c.is_ascii_alphabetic());
+                println!("director: {}", string);
+                (Token::Directive(string), remain)
             },
             
             Some((_, ',')) => {
