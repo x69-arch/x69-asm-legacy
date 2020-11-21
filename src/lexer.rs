@@ -135,7 +135,7 @@ impl<'a> Iterator for Lexer<'a> {
             None => return None
         };
         
-        println!("token: {:?}", token);
+        // println!("token: {:?}", token);
         
         self.remain = r;
         Some(token)

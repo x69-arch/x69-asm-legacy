@@ -28,6 +28,18 @@ pub fn assemble_lines(lines: &[Line], logs: &mut Vec<Log>) -> Vec<u8> {
                 }
             },
             
+            LineData::AbsolutePadding(offset) => {
+                if *offset < buffer.len() as u16 {
+                    logs.push(Log::Error(line.line, format!("line offset is less than current offset: {:x}", buffer.len())));
+                } else {
+                    let padding = offset - buffer.len() as u16;
+                    if padding % 2 == 1 {
+                        logs.push(Log::Warning(line.line, "line offset will not guarantee instruction alignment".to_owned()));
+                    }
+                    buffer.resize( buffer.len() + padding as usize, 0);
+                }
+            }
+            
             LineData::Bytes(bytes) => {
                 buffer.extend(bytes);
             },
@@ -193,4 +205,17 @@ mod tests {
         let bytes = assemble_string(".db 0 1 2 3 4");
         assert_eq!(bytes, vec![0, 1, 2, 3, 4]);
     }
+    
+    #[test]
+    fn line_offset() {
+        let buffer = assemble_string("
+            add r1, r2
+            .line 0x1234
+        _halt:
+            jmp _halt");
+        
+        assert_eq!(buffer.len(), 0x1237);
+        assert_eq!(buffer[0x1235], 0x34);
+        assert_eq!(buffer[0x1236], 0x12);
+    } 
 }

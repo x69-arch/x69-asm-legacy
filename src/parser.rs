@@ -35,6 +35,7 @@ pub enum Parameters {
 #[derive(Clone, Debug)]
 pub enum LineData {
     Label(String),
+    AbsolutePadding(u16),
     Bytes(Vec<u8>),
     Instruction {
         name: Instruction,
@@ -158,6 +159,18 @@ pub fn parse(source: &str) -> (Vec<Line>, Vec<Log>) {
             // Parsing directives
             Some(Token::Directive(dir)) => {
                 match dir {
+                    "line" => {
+                        if let Some(Token::Immediate(offset)) = lexer.next() {
+                            match lexer.next() {
+                                None => {
+                                    let data = LineData::AbsolutePadding(make_int!(offset, u16));
+                                    lines.push(Line {line, data});
+                                },
+                                Some(token) => log_error!("unexpected token after line offset: {:?}", token),
+                            }
+                        }
+                    },
+                    
                     "db" => {
                         let mut bytes = Vec::new();
                         let mut token = lexer.next();
@@ -176,7 +189,7 @@ pub fn parse(source: &str) -> (Vec<Line>, Vec<Log>) {
                             },
                             Some(token) => log_error!("unexpected token in db field: {:?}", token),
                         }
-                    }
+                    },
                     
                     _ => log_error!("unknown directive: {}", dir)
                 }
