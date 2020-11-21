@@ -28,6 +28,10 @@ pub fn assemble_lines(lines: &[Line], logs: &mut Vec<Log>) -> Vec<u8> {
                 }
             },
             
+            LineData::Bytes(bytes) => {
+                buffer.extend(bytes);
+            },
+            
             LineData::Instruction {name, params} => {
                 let asm_info = name.assemble_info();
                 
@@ -182,5 +186,11 @@ mod tests {
         
         // Both codes should output identical binaries
         assert_eq!(basic, labels);
+    }
+    
+    #[test]
+    fn db() {
+        let bytes = assemble_string(".db 0 1 2 3 4");
+        assert_eq!(bytes, vec![0, 1, 2, 3, 4]);
     }
 }

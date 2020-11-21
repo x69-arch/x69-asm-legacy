@@ -35,6 +35,7 @@ pub enum Parameters {
 #[derive(Clone, Debug)]
 pub enum LineData {
     Label(String),
+    Bytes(Vec<u8>),
     Instruction {
         name: Instruction,
         params: Parameters,
@@ -152,6 +153,33 @@ pub fn parse(source: &str) -> (Vec<Line>, Vec<Log>) {
                     Some(token) => log_error!("unexpected token after label: {:?}", token),
                 }
                 continue;
+            },
+            
+            // Parsing directives
+            Some(Token::Directive(dir)) => {
+                match dir {
+                    "db" => {
+                        let mut bytes = Vec::new();
+                        let mut token = lexer.next();
+                        
+                        while let Some(Token::Immediate(byte)) = token {
+                            bytes.push(make_int!(byte, u8));
+                            token = lexer.next();
+                        }
+                        match token {
+                            None => {
+                                if bytes.is_empty() {
+                                    logs.push(Log::Warning(line, "empty db field".to_owned()));
+                                }
+                                let data = LineData::Bytes(bytes);
+                                lines.push(Line {line, data});
+                            },
+                            Some(token) => log_error!("unexpected token in db field: {:?}", token),
+                        }
+                    }
+                    
+                    _ => log_error!("unknown directive: {}", dir)
+                }
             },
             
             // Parsing instructions

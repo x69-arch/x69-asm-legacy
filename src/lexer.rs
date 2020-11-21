@@ -97,23 +97,24 @@ impl<'a> Iterator for Lexer<'a> {
                             let (hex, remain) = take_while(&self.remain[2..], |c| c.is_ascii_hexdigit());
                             let stop = hex.len() + 2;
                             (Token::Immediate(&self.remain[..stop]), remain)
-                        }
+                        },
                         
                         // Binary literal
                         Some('b') => {
                             let (binary, remain) = take_while(&self.remain[2..], |c| c == '1' || c == '0');
                             let stop = binary.len() + 2;
                             (Token::Immediate(&self.remain[..stop]), remain)
-                        }
+                        },
                         
                         // Regular number with leading zero
                         Some(c) if c.is_ascii_digit() => {
                             let (decimal, remain) = take_while(&self.remain[2..], |c| c.is_ascii_digit());
                             let stop = decimal.len() + 2;
                             (Token::Immediate(&self.remain[..stop]), remain)
-                        }
+                        },
                         
-                        _ => (Token::Unknown(&self.remain[..2]), &self.remain[2..])
+                        // Just a 0, nothing to worry about here :)
+                        _ => (Token::Immediate(&self.remain[..1]), &self.remain[1..])
                     }
                 } else {
                     let (i, remain) = take_while(self.remain, |c| c.is_ascii_digit());
@@ -133,6 +134,8 @@ impl<'a> Iterator for Lexer<'a> {
             
             None => return None
         };
+        
+        println!("token: {:?}", token);
         
         self.remain = r;
         Some(token)
