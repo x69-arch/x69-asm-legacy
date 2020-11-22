@@ -184,24 +184,28 @@ mod tests {
         _loop:
             add r1, r0
             add r0, r1
-            call _loop
+            jmp _loop
         ");
-        
         let basic = assemble_string("
             set r0, 1
             mov r1, r0
             add r1, r0
             add r0, r1
-            call 5
+            jmp 5
         ");
         
         // Both codes should output identical binaries
         assert_eq!(basic, labels);
+        
+        let halt = assemble_string("halt: jmp halt");
+        assert_eq!(halt[0], 0b11001100);
+        assert_eq!(halt[1], 0);
+        assert_eq!(halt[2], 0);
     }
     
     #[test]
     fn db() {
-        let bytes = assemble_string(".db 0 1 2 3 4");
+        let bytes = assemble_string("array: .db 0 1 2 3 4");
         assert_eq!(bytes, vec![0, 1, 2, 3, 4]);
     }
     

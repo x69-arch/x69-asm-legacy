@@ -143,19 +143,17 @@ pub fn parse(source: &str) -> (Vec<Line>, Vec<Log>) {
         }
         
         let mut lexer = Lexer::new(source);
+        let mut first_token = lexer.next();
+        
+        // Parsing label
+        if let Some(Token::Label(l)) = first_token {
+            let data = LineData::Label(l.to_owned());
+            lines.push(Line {line, data});
+            first_token = lexer.next();
+        }
         
         // Match first token and go from there
-        match lexer.next() {
-            // Parsing label
-            Some(Token::Label(l)) => {
-                let data = LineData::Label(l.to_owned());
-                match lexer.next() {
-                    None => lines.push(Line {line, data}),
-                    Some(token) => log_error!("unexpected token after label: {:?}", token),
-                }
-                continue;
-            },
-            
+        match first_token {
             // Parsing directives
             Some(Token::Directive(dir)) => {
                 match dir {
@@ -358,7 +356,10 @@ pub fn parse(source: &str) -> (Vec<Line>, Vec<Log>) {
             Some(token) => log_error!("unexpected token: {:?}", token),
             
             // Should not get here lol
-            None => { panic!("Should never get here, contact your local assembler dev") }
+            // None => { panic!("Should never get here, contact your local assembler dev") }
+            
+            // Can get here now lmao
+            None => continue,
         }
     }
     
