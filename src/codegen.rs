@@ -221,4 +221,17 @@ mod tests {
         assert_eq!(buffer[0x1235], 0x34);
         assert_eq!(buffer[0x1236], 0x12);
     } 
+    
+    #[test]
+    fn ldr_sdr() {
+        let buffer = assemble_string("ldr r0, 15");
+        assert_eq!(buffer[0], 0b10010000);
+        assert_eq!(buffer[1], 0);
+        assert_eq!(buffer[2], 15);
+        
+        let buffer = assemble_string("sdr r0, 15");
+        assert_eq!(buffer[0], 0b10010001);
+        assert_eq!(buffer[1], 0);
+        assert_eq!(buffer[2], 15);
+    }
 }

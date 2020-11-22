@@ -48,6 +48,10 @@ pub enum Instruction {
     STN,
     CMP,
     
+    // Memory operations
+    LDR,
+    SDR,
+    
     // CPU Operations
     // RET,
     LPC,
@@ -57,8 +61,8 @@ pub enum Instruction {
     SLR,
     LSP,
     SSP,
-    LADDR,
-    SADDR,
+    LADR,
+    SADR,
     
     JMPZ,
     JMPNZ,
@@ -80,10 +84,10 @@ pub enum Instruction {
 }
 
 // CPU Special Registers
-const PC:   u8 = 0b00;
-const LR:   u8 = 0b01;
-const SP:   u8 = 0b10;
-const ADDR: u8 = 0b11;
+const PC:  u8 = 0b00;
+const LR:  u8 = 0b01;
+const SP:  u8 = 0b10;
+const ADR: u8 = 0b11;
 // 0b01001100
 const fn rw_builder(write: bool, register: u8) -> u8 {
     let mut rw = 0b01001000 | register;
@@ -150,16 +154,20 @@ impl Instruction {
             Self::STN => (0b00111001, OneRegisterAndImmediate, AA),
             Self::CMP => (0b00101010, TwoRegisters,            AB),
             
-            // Self::RET    => (0b01000000, NoParams, AB),
-            Self::LPC    => (rw_builder(false, PC), TwoRegisters, AB),
-            Self::JMP    => (rw_builder(true,  PC), TwoRegistersOrLongImmediate, AB),
+            // Will need custom parsing eventually
+            Self::LDR => (0b00010000, OneRegisterAndImmediate, AA),
+            Self::SDR => (0b00010001, OneRegisterAndImmediate, AA),
             
-            Self::LLR   => (rw_builder(false, LR),   TwoRegisters,                AB),
-            Self::SLR   => (rw_builder(true,  LR),   TwoRegistersOrLongImmediate, AB),
-            Self::LSP   => (rw_builder(false, SP),   TwoRegisters,                AB),
-            Self::SSP   => (rw_builder(true,  SP),   TwoRegistersOrLongImmediate, AB),
-            Self::LADDR => (rw_builder(false, ADDR), TwoRegisters,                AB),
-            Self::SADDR => (rw_builder(true,  ADDR), TwoRegistersOrLongImmediate, AB),
+            // Self::RET    => (0b01000000, NoParams, AB),
+            Self::LPC => (rw_builder(false, PC), TwoRegisters, AB),
+            Self::JMP => (rw_builder(true,  PC), TwoRegistersOrLongImmediate, AB),
+            
+            Self::LLR  => (rw_builder(false, LR),   TwoRegisters,                AB),
+            Self::SLR  => (rw_builder(true,  LR),   TwoRegistersOrLongImmediate, AB),
+            Self::LSP  => (rw_builder(false, SP),   TwoRegisters,                AB),
+            Self::SSP  => (rw_builder(true,  SP),   TwoRegistersOrLongImmediate, AB),
+            Self::LADR => (rw_builder(false, ADR),  TwoRegisters,                AB),
+            Self::SADR => (rw_builder(true,  ADR),  TwoRegistersOrLongImmediate, AB),
             
             Self::JMPZ   => (jump_builder(false, true,  ZERO),  TwoRegistersOrLongImmediate, AB),
             Self::JMPNZ  => (jump_builder(false, false, ZERO),  TwoRegistersOrLongImmediate, AB),
