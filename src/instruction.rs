@@ -1,3 +1,5 @@
+use utils::{ToFromString, Iter};
+
 #[derive(Clone, Copy, Debug)]
 pub enum OperandMode {
     NoParams,                // NOP
@@ -20,7 +22,7 @@ pub enum RegisterMap {
     // BB,
 }
 
-#[derive(Clone, Copy, Debug, utils::ToFromString)]
+#[derive(Clone, Copy, Debug, ToFromString, Iter)]
 pub enum Instruction {
     // ALU Operations
     NOP,
@@ -119,7 +121,7 @@ const fn call_builder(relative: bool, check_true: bool, alu_flag: u8) -> u8 {
     call
 }
 
-impl Instruction {
+impl Instruction {    
     #[inline(always)]
     pub fn assemble_info(&self) -> (u8, OperandMode, RegisterMap) {
         use OperandMode::*;
@@ -152,11 +154,11 @@ impl Instruction {
             Self::LPC    => (rw_builder(false, PC), TwoRegisters, AB),
             Self::JMP    => (rw_builder(true,  PC), TwoRegistersOrLongImmediate, AB),
             
-            Self::LLR => (rw_builder(false, LR), TwoRegisters, AB),
-            Self::SLR => (rw_builder(true,  LR), TwoRegistersOrLongImmediate, AB),
-            Self::LSP => (rw_builder(false, SP), TwoRegisters, AB),
-            Self::SSP => (rw_builder(true,  SP), TwoRegistersOrLongImmediate, AB),
-            Self::LADDR => (rw_builder(false, ADDR), TwoRegisters, AB),
+            Self::LLR   => (rw_builder(false, LR),   TwoRegisters,                AB),
+            Self::SLR   => (rw_builder(true,  LR),   TwoRegistersOrLongImmediate, AB),
+            Self::LSP   => (rw_builder(false, SP),   TwoRegisters,                AB),
+            Self::SSP   => (rw_builder(true,  SP),   TwoRegistersOrLongImmediate, AB),
+            Self::LADDR => (rw_builder(false, ADDR), TwoRegisters,                AB),
             Self::SADDR => (rw_builder(true,  ADDR), TwoRegistersOrLongImmediate, AB),
             
             Self::JMPZ   => (jump_builder(false, true,  ZERO),  TwoRegistersOrLongImmediate, AB),
@@ -178,4 +180,36 @@ impl Instruction {
             Self::RCALLNC => (call_builder(true,  false, CARRY), TwoRegistersOrLongImmediate, AB),
         }
     }
+    
+    pub fn print_usage(&self) {
+        let name = self.to_str();
+        let ops = self.assemble_info().1;
+        
+        // This exists so that instructions can override their usage printout in special cases
+        #[allow(clippy::match_single_binding)]
+        match self {
+            _ => match ops {
+                OperandMode::NoParams                => println!("{}",          name),
+                OperandMode::OneRegister             => println!("{}\tR0",      name),
+                OperandMode::OneOrTwoRegisters       => println!("{}\tR0 [R1]", name),
+                OperandMode::OneRegisterAndImmediate => println!("{}\tR0, IM8", name),
+                OperandMode::TwoRegisters            => println!("{}\tR0, R1",  name),
+                OperandMode::TwoRegistersOrImmediate => {
+                    println!("{}\tR0, IM8", name);
+                    println!("{}\tR0, R1 [IM8]", name);
+                },
+                OperandMode::TwoRegistersOrLongImmediate => {
+                    println!("{}\tR0, R1", name);
+                    println!("{}\tIM16", name);
+                },
+            }
+        };
+    }
+}
+
+pub fn print_all() {
+    println!("Instruction usage:");
+    println!("R0: Register (0-15)");
+    println!("[]: Optional parameter");
+    Instruction::iter().for_each(Instruction::print_usage);
 }

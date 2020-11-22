@@ -36,6 +36,29 @@ pub fn to_from_string(input: TokenStream) -> TokenStream {
             }
         }
     };
-    
+    generated.into()
+}
+
+#[proc_macro_derive(Iter)]
+pub fn static_iter(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+    let name = &ast.ident;
+    let variants = match ast.data {
+        Enum(e) => {
+            let mut out = Vec::new();
+            out.extend(e.variants.iter().map(|e| e.ident.clone()));
+            out
+        },
+        _ => panic!("#[derive(Iter)] is only implemented for enums!")
+    };
+    let len = variants.len();
+    let generated = quote! {
+        impl #name {
+            pub fn iter() -> std::slice::Iter<'static, Self> {
+                static array: [#name; #len] = [#(#name::#variants,)*];
+                array.iter()
+            }
+        }
+    };
     generated.into()
 }
