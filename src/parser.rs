@@ -15,8 +15,14 @@ impl Log {
 impl std::fmt::Display for Log {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            #[cfg(feature = "no_color")]
             Self::Warning(line, msg) => write!(f, "WARNING: Line {}: {}", line + 1, msg),
-            Self::Error(line, msg) => write!(f,   "ERROR:   Line {}: {}", line + 1, msg),
+            #[cfg(not(feature = "no_color"))]
+            Self::Warning(line, msg) => write!(f, "\x1b[1;33mWARNING:\x1b[0m Line {}: {}", line + 1, msg),
+            #[cfg(feature = "no_color")]
+            Self::Error(line, msg) => write!(f, "ERROR:   Line {}: {}", line + 1, msg),
+            #[cfg(not(feature = "no_color"))]
+            Self::Error(line, msg) => write!(f, "\x1b[1;31mERROR:\x1b[0m   Line {}: {}", line + 1, msg),
         }
     }
 }

@@ -4,5 +4,9 @@ version = "0.1.0"
 authors = ["Zachary Wells <8bitslime@gmail.com>"]
 edition = "2018"
 
+[features]
+default = []
+no_color = []
+
 [dependencies]
 utils = {version = "0.1.0", path = "utils/"}
