@@ -167,7 +167,7 @@ mod tests {
     #[test]
     fn jmp() {
         let buffer = assemble_string("jmp r0, r15");
-        assert_eq!(buffer[0], 0b01001100);
+        assert_eq!(buffer[0], 0b01000000);
         assert_eq!(buffer[1], 0xF0);
         
         // let buffer = assemble_string("rjmp 6969");
@@ -198,7 +198,7 @@ mod tests {
         assert_eq!(basic, labels);
         
         let halt = assemble_string("halt: jmp halt");
-        assert_eq!(halt[0], 0b11001100);
+        assert_eq!(halt[0], 0b11000000);
         assert_eq!(halt[1], 0);
         assert_eq!(halt[2], 0);
     }
@@ -229,9 +229,9 @@ mod tests {
         assert_eq!(buffer[1], 0);
         assert_eq!(buffer[2], 15);
         
-        let buffer = assemble_string("sdr r0, 15");
+        let buffer = assemble_string("sdr r0, 150");
         assert_eq!(buffer[0], 0b10010001);
         assert_eq!(buffer[1], 0);
-        assert_eq!(buffer[2], 15);
+        assert_eq!(buffer[2], 150);
     }
 }

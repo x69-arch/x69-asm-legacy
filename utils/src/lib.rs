@@ -55,8 +55,8 @@ pub fn static_iter(input: TokenStream) -> TokenStream {
     let generated = quote! {
         impl #name {
             pub fn iter() -> std::slice::Iter<'static, Self> {
-                static array: [#name; #len] = [#(#name::#variants,)*];
-                array.iter()
+                static ARRAY: [#name; #len] = [#(#name::#variants,)*];
+                ARRAY.iter()
             }
         }
     };

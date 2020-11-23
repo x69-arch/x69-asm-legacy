@@ -48,15 +48,18 @@ pub enum Instruction {
     STN,
     CMP,
     
+    // ALU Flag operations
+    DNFG,
+    ENFG,
+    
     // Memory operations
     LDR,
     SDR,
     
     // CPU Operations
-    // RET,
+    RET,
     LPC,
-    JMP,
-    
+    SPC,
     LLR,
     SLR,
     LSP,
@@ -64,6 +67,8 @@ pub enum Instruction {
     LADR,
     SADR,
     
+    JMP,
+    RJMP,
     JMPZ,
     JMPNZ,
     JMPC,
@@ -73,6 +78,8 @@ pub enum Instruction {
     RJMPC,
     RJMPNC,
     
+    CALL,
+    RCALL,
     CALLZ,
     CALLNZ,
     CALLC,
@@ -154,21 +161,24 @@ impl Instruction {
             Self::STN => (0b00111001, OneRegisterAndImmediate, AA),
             Self::CMP => (0b00101010, TwoRegisters,            AB),
             
+            Self::DNFG => (0b01010001, NoParams, AA),
+            Self::ENFG => (0b01010101, NoParams, AA),
+            
             // Will need custom parsing eventually
             Self::LDR => (0b00010000, OneRegisterAndImmediate, AA),
             Self::SDR => (0b00010001, OneRegisterAndImmediate, AA),
             
-            // Self::RET    => (0b01000000, NoParams, AB),
-            Self::LPC => (rw_builder(false, PC), TwoRegisters, AB),
-            Self::JMP => (rw_builder(true,  PC), TwoRegistersOrLongImmediate, AB),
+            Self::LPC  => (rw_builder(false, PC),  TwoRegisters, AB),
+            Self::SPC  => (rw_builder(true,  PC),  TwoRegistersOrLongImmediate, AB),
+            Self::LLR  => (rw_builder(false, LR),  TwoRegisters,                AB),
+            Self::SLR  => (rw_builder(true,  LR),  TwoRegistersOrLongImmediate, AB),
+            Self::LSP  => (rw_builder(false, SP),  TwoRegisters,                AB),
+            Self::SSP  => (rw_builder(true,  SP),  TwoRegistersOrLongImmediate, AB),
+            Self::LADR => (rw_builder(false, ADR), TwoRegisters,                AB),
+            Self::SADR => (rw_builder(true,  ADR), TwoRegistersOrLongImmediate, AB),
             
-            Self::LLR  => (rw_builder(false, LR),   TwoRegisters,                AB),
-            Self::SLR  => (rw_builder(true,  LR),   TwoRegistersOrLongImmediate, AB),
-            Self::LSP  => (rw_builder(false, SP),   TwoRegisters,                AB),
-            Self::SSP  => (rw_builder(true,  SP),   TwoRegistersOrLongImmediate, AB),
-            Self::LADR => (rw_builder(false, ADR),  TwoRegisters,                AB),
-            Self::SADR => (rw_builder(true,  ADR),  TwoRegistersOrLongImmediate, AB),
-            
+            Self::JMP    => (0b01000000, TwoRegistersOrLongImmediate, AB),
+            Self::RJMP   => (0b01000010, TwoRegistersOrLongImmediate, AB),
             Self::JMPZ   => (jump_builder(false, true,  ZERO),  TwoRegistersOrLongImmediate, AB),
             Self::JMPNZ  => (jump_builder(false, false, ZERO),  TwoRegistersOrLongImmediate, AB),
             Self::JMPC   => (jump_builder(false, true,  CARRY), TwoRegistersOrLongImmediate, AB),
@@ -178,6 +188,9 @@ impl Instruction {
             Self::RJMPC  => (jump_builder(true,  true,  CARRY), TwoRegistersOrLongImmediate, AB),
             Self::RJMPNC => (jump_builder(true,  false, CARRY), TwoRegistersOrLongImmediate, AB),
             
+            Self::RET     => (0b01010000, NoParams, AB),
+            Self::CALL    => (0b01000001, TwoRegistersOrLongImmediate, AB),
+            Self::RCALL   => (0b01000011, TwoRegistersOrLongImmediate, AB),
             Self::CALLZ   => (call_builder(false, true,  ZERO),  TwoRegistersOrLongImmediate, AB),
             Self::CALLNZ  => (call_builder(false, false, ZERO),  TwoRegistersOrLongImmediate, AB),
             Self::CALLC   => (call_builder(false, true,  CARRY), TwoRegistersOrLongImmediate, AB),
