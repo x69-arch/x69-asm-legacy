@@ -4,9 +4,20 @@ version = "0.1.0"
 authors = ["Zachary Wells <8bitslime@gmail.com>"]
 edition = "2018"
 
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 'z'
+
+[lib]
+name = "x69"
+path = "src/lib.rs"
+crate-type = ["staticlib", "cdylib"]
+
 [features]
 default = []
 no_color = []
 
 [dependencies]
 utils = {version = "0.1.0", path = "utils/"}
+libc = "*"
