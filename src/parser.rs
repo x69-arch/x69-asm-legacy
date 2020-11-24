@@ -27,6 +27,8 @@ impl std::fmt::Display for Log {
     }
 }
 
+// TODO Immediate struct and allow labels and immediates
+
 #[derive(Clone, Debug)]
 pub enum Parameters {
     None,
@@ -39,10 +41,21 @@ pub enum Parameters {
 }
 
 #[derive(Clone, Debug)]
+pub enum DataByte {
+    Label(String),
+    Byte(u8),
+}
+
+#[derive(Clone, Debug)]
+pub enum Directive {
+    Line(u16),
+    DB(Vec<DataByte>),
+}
+
+#[derive(Clone, Debug)]
 pub enum LineData {
     Label(String),
-    AbsolutePadding(u16),
-    Bytes(Vec<u8>),
+    Directive(Directive),
     Instruction {
         name: Instruction,
         params: Parameters,
@@ -167,7 +180,7 @@ pub fn parse(source: &str) -> (Vec<Line>, Vec<Log>) {
                         if let Some(Token::Immediate(offset)) = lexer.next() {
                             match lexer.next() {
                                 None => {
-                                    let data = LineData::AbsolutePadding(make_int!(offset, u16));
+                                    let data = LineData::Directive(Directive::Line(make_int!(offset, u16)));
                                     lines.push(Line {line, data});
                                 },
                                 Some(token) => log_error!("unexpected token after line offset: {:?}", token),
@@ -176,22 +189,20 @@ pub fn parse(source: &str) -> (Vec<Line>, Vec<Log>) {
                     },
                     
                     "db" => {
-                        let mut bytes = Vec::new();
-                        let mut token = lexer.next();
-                        
-                        while let Some(Token::Immediate(byte)) = token {
-                            bytes.push(make_int!(byte, u8));
-                            token = lexer.next();
-                        }
-                        match token {
-                            None => {
-                                if bytes.is_empty() {
-                                    logs.push(Log::Warning(line, "empty db field".to_owned()));
+                        let mut data_bytes = Vec::new();
+                        loop {
+                            match lexer.next() {
+                                Some(Token::Immediate(byte)) => data_bytes.push(DataByte::Byte(make_int!(byte, u8))),
+                                Some(Token::Ident(l)) => data_bytes.push(DataByte::Label(l.to_owned())),
+                                Some(token) => log_error!("unexpected token in db field: {:?}", token),
+                                None => {
+                                    if data_bytes.is_empty() {
+                                        logs.push(Log::Warning(line, "empty db field".to_owned()));
+                                    }
+                                    lines.push(Line {line, data: LineData::Directive(Directive::DB(data_bytes))});
+                                    break;
                                 }
-                                let data = LineData::Bytes(bytes);
-                                lines.push(Line {line, data});
-                            },
-                            Some(token) => log_error!("unexpected token in db field: {:?}", token),
+                            }
                         }
                     },
                     
@@ -238,7 +249,7 @@ pub fn parse(source: &str) -> (Vec<Line>, Vec<Log>) {
                         }
                         let reg2 = match lexer.next() {
                             Some(Token::Register(r)) => make_register!(r),
-                            Some(token) => log_error!("expected a regsiter, got: {:?}", token),
+                            Some(token) => log_error!("expected a register, got: {:?}", token),
                             None => log_error!("trailing ','s are not allowed"),
                         };
                         match lexer.next() {

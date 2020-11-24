@@ -1,5 +1,5 @@
 use crate::instruction::RegisterMap;
-use crate::parser::{Line, LineData, Log, Parameters};
+use crate::parser::{Line, LineData, Log, Parameters, DataByte, Directive};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Register(u8);
@@ -23,26 +23,39 @@ pub fn assemble_lines(lines: &[Line], logs: &mut Vec<Log>) -> Vec<u8> {
         match &line.data {
             // TODO: Create link table
             LineData::Label(name) => {
-                if let Some(_label) = link_table.insert(name.clone(), buffer.len()) {
+                if let Some(_overriden_label) = link_table.insert(name.clone(), buffer.len()) {
                     logs.push(Log::Error(line.line, format!("symbol {} declared multiple times", name)));
                 }
             },
             
-            LineData::AbsolutePadding(offset) => {
-                if *offset < buffer.len() as u16 {
-                    logs.push(Log::Error(line.line, format!("line offset is less than current offset: {:x}", buffer.len())));
-                } else {
-                    let padding = offset - buffer.len() as u16;
-                    if padding % 2 == 1 {
-                        logs.push(Log::Warning(line.line, "line offset will not guarantee instruction alignment".to_owned()));
+            LineData::Directive(dir) => {
+                match dir {
+                    Directive::Line(offset) => {
+                        if *offset < buffer.len() as u16 {
+                            logs.push(Log::Error(line.line, format!("line offset is less than current offset: {:x}", buffer.len())));
+                        } else {
+                            let padding = offset - buffer.len() as u16;
+                            if padding % 2 == 1 {
+                                logs.push(Log::Warning(line.line, "line offset will not guarantee instruction alignment".to_owned()));
+                            }
+                            buffer.resize(buffer.len() + padding as usize, 0);
+                        }
+                    },
+                    
+                    Directive::DB(data_byte) => {
+                        for db in data_byte {
+                            match db {
+                                DataByte::Byte(byte) => buffer.push(*byte),
+                                DataByte::Label(label) => {
+                                    unresolved.push((label.clone(), buffer.len(), line.line));
+                                    buffer.push(0xDE);
+                                    buffer.push(0xAD);
+                                }
+                            }
+                        }
                     }
-                    buffer.resize( buffer.len() + padding as usize, 0);
                 }
             }
-            
-            LineData::Bytes(bytes) => {
-                buffer.extend(bytes);
-            },
             
             LineData::Instruction {name, params} => {
                 let asm_info = name.assemble_info();
@@ -93,8 +106,8 @@ pub fn assemble_lines(lines: &[Line], logs: &mut Vec<Log>) -> Vec<u8> {
                         buffer.push(asm_info.0 | 0b10000000);
                         // Temporary data
                         unresolved.push((label, buffer.len(), line.line));
-                        buffer.push(0);
-                        buffer.push(0);
+                        buffer.push(0xDE);
+                        buffer.push(0xAD);
                     },
                 };
             }
@@ -167,13 +180,13 @@ mod tests {
     #[test]
     fn jmp() {
         let buffer = assemble_string("jmp r0, r15");
-        assert_eq!(buffer[0], 0b01000000);
+        assert_eq!(buffer[0], 0b01000100);
         assert_eq!(buffer[1], 0xF0);
         
-        // let buffer = assemble_string("rjmp 6969");
-        // assert_eq!(buffer[0], 0b11000010);
-        // assert_eq!(buffer[1], (6969 & 0xFF) as u8);
-        // assert_eq!(buffer[2], (6969 >> 8)   as u8);
+        let buffer = assemble_string("rjmp 6969");
+        assert_eq!(buffer[0], 0b11000110);
+        assert_eq!(buffer[1], (6969 & 0xFF) as u8);
+        assert_eq!(buffer[2], (6969 >> 8)   as u8);
     }
     
     #[test]
@@ -198,15 +211,15 @@ mod tests {
         assert_eq!(basic, labels);
         
         let halt = assemble_string("halt: jmp halt");
-        assert_eq!(halt[0], 0b11000000);
+        assert_eq!(halt[0], 0b11000100);
         assert_eq!(halt[1], 0);
         assert_eq!(halt[2], 0);
     }
     
     #[test]
     fn db() {
-        let bytes = assemble_string("array: .db 0 1 2 3 4");
-        assert_eq!(bytes, vec![0, 1, 2, 3, 4]);
+        let bytes = assemble_string("array: .db 0 1 array 3 4");
+        assert_eq!(bytes, vec![0, 1, 0, 0, 3, 4]);
     }
     
     #[test]
@@ -229,7 +242,7 @@ mod tests {
         assert_eq!(buffer[1], 0);
         assert_eq!(buffer[2], 15);
         
-        let buffer = assemble_string("sdr r0, 150");
+        let buffer = assemble_string("str r0, 150");
         assert_eq!(buffer[0], 0b10010001);
         assert_eq!(buffer[1], 0);
         assert_eq!(buffer[2], 150);

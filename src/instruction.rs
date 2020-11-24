@@ -54,10 +54,9 @@ pub enum Instruction {
     
     // Memory operations
     LDR,
-    SDR,
+    STR,
     
     // CPU Operations
-    RET,
     LPC,
     SPC,
     LLR,
@@ -78,6 +77,7 @@ pub enum Instruction {
     RJMPC,
     RJMPNC,
     
+    RET,
     CALL,
     RCALL,
     CALLZ,
@@ -166,7 +166,7 @@ impl Instruction {
             
             // Will need custom parsing eventually
             Self::LDR => (0b00010000, OneRegisterAndImmediate, AA),
-            Self::SDR => (0b00010001, OneRegisterAndImmediate, AA),
+            Self::STR => (0b00010001, OneRegisterAndImmediate, AA),
             
             Self::LPC  => (rw_builder(false, PC),  TwoRegisters, AB),
             Self::SPC  => (rw_builder(true,  PC),  TwoRegistersOrLongImmediate, AB),
@@ -177,8 +177,8 @@ impl Instruction {
             Self::LADR => (rw_builder(false, ADR), TwoRegisters,                AB),
             Self::SADR => (rw_builder(true,  ADR), TwoRegistersOrLongImmediate, AB),
             
-            Self::JMP    => (0b01000000, TwoRegistersOrLongImmediate, AB),
-            Self::RJMP   => (0b01000010, TwoRegistersOrLongImmediate, AB),
+            Self::JMP    => (0b01000100, TwoRegistersOrLongImmediate, AB),
+            Self::RJMP   => (0b01000110, TwoRegistersOrLongImmediate, AB),
             Self::JMPZ   => (jump_builder(false, true,  ZERO),  TwoRegistersOrLongImmediate, AB),
             Self::JMPNZ  => (jump_builder(false, false, ZERO),  TwoRegistersOrLongImmediate, AB),
             Self::JMPC   => (jump_builder(false, true,  CARRY), TwoRegistersOrLongImmediate, AB),
@@ -189,8 +189,8 @@ impl Instruction {
             Self::RJMPNC => (jump_builder(true,  false, CARRY), TwoRegistersOrLongImmediate, AB),
             
             Self::RET     => (0b01010000, NoParams, AB),
-            Self::CALL    => (0b01000001, TwoRegistersOrLongImmediate, AB),
-            Self::RCALL   => (0b01000011, TwoRegistersOrLongImmediate, AB),
+            Self::CALL    => (0b01001001, TwoRegistersOrLongImmediate, AB),
+            Self::RCALL   => (0b01001011, TwoRegistersOrLongImmediate, AB),
             Self::CALLZ   => (call_builder(false, true,  ZERO),  TwoRegistersOrLongImmediate, AB),
             Self::CALLNZ  => (call_builder(false, false, ZERO),  TwoRegistersOrLongImmediate, AB),
             Self::CALLC   => (call_builder(false, true,  CARRY), TwoRegistersOrLongImmediate, AB),
