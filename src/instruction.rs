@@ -66,6 +66,9 @@ pub enum Instruction {
     LADR,
     SADR,
     
+	PUSH,
+	POP,
+
     JMP,
     RJMP,
     JMPZ,
@@ -110,23 +113,23 @@ const CARRY: u8 = 1;
 // Twos compliment overflow
 // const TWOS:  u8 = 2;
 
-const fn jump_builder(relative: bool, check_true: bool, alu_flag: u8) -> u8 {
+const fn jump_builder(relative: bool, check_not: bool, alu_flag: u8) -> u8 {
     let mut jmp = 0b01100000 | alu_flag << 2;
     if relative {
         jmp |= 0b00000010;
     }
-    if check_true {
+    if check_not {
         jmp |= 0b00010000;
     }
     jmp
 }
 
-const fn call_builder(relative: bool, check_true: bool, alu_flag: u8) -> u8 {
+const fn call_builder(relative: bool, check_not: bool, alu_flag: u8) -> u8 {
     let mut call = 0b01100001 | alu_flag << 2;
     if relative {
         call |= 0b00000010;
     }
-    if check_true {
+    if check_not {
         call |= 0b00010000;
     }
     call
@@ -161,9 +164,6 @@ impl Instruction {
             Self::STN => (0b00111001, OneRegisterAndImmediate, AA),
             Self::CMP => (0b00101010, TwoRegisters,            AB),
             
-            Self::DNFG => (0b01010001, NoParams, AA),
-            Self::ENFG => (0b01010101, NoParams, AA),
-            
             // Will need custom parsing eventually
             Self::LDR => (0b00010000, OneRegisterAndImmediate, AA),
             Self::STR => (0b00010001, OneRegisterAndImmediate, AA),
@@ -177,28 +177,33 @@ impl Instruction {
             Self::LADR => (rw_builder(false, ADR), TwoRegisters,                AB),
             Self::SADR => (rw_builder(true,  ADR), TwoRegistersOrLongImmediate, AB),
             
+            Self::RET  => (0b01010000, NoParams, AB),
+            Self::DNFG => (0b01010001, NoParams, AA),
+            Self::ENFG => (0b01010010, NoParams, AA),
+            Self::PUSH => (0b01010011, OneRegister, AA),
+            Self::POP  => (0b01010100, OneRegister, AA),
+             
             Self::JMP    => (0b01000100, TwoRegistersOrLongImmediate, AB),
             Self::RJMP   => (0b01000110, TwoRegistersOrLongImmediate, AB),
-            Self::JMPZ   => (jump_builder(false, true,  ZERO),  TwoRegistersOrLongImmediate, AB),
-            Self::JMPNZ  => (jump_builder(false, false, ZERO),  TwoRegistersOrLongImmediate, AB),
-            Self::JMPC   => (jump_builder(false, true,  CARRY), TwoRegistersOrLongImmediate, AB),
-            Self::JMPNC  => (jump_builder(false, false, CARRY), TwoRegistersOrLongImmediate, AB),
-            Self::RJMPZ  => (jump_builder(true,  true,  ZERO),  TwoRegistersOrLongImmediate, AB),
-            Self::RJMPNZ => (jump_builder(true,  false, ZERO),  TwoRegistersOrLongImmediate, AB),
-            Self::RJMPC  => (jump_builder(true,  true,  CARRY), TwoRegistersOrLongImmediate, AB),
-            Self::RJMPNC => (jump_builder(true,  false, CARRY), TwoRegistersOrLongImmediate, AB),
+            Self::JMPZ   => (jump_builder(false, false,  ZERO),  TwoRegistersOrLongImmediate, AB),
+            Self::JMPNZ  => (jump_builder(false, true, ZERO),  TwoRegistersOrLongImmediate, AB),
+            Self::JMPC   => (jump_builder(false, false,  CARRY), TwoRegistersOrLongImmediate, AB),
+            Self::JMPNC  => (jump_builder(false, true, CARRY), TwoRegistersOrLongImmediate, AB),
+            Self::RJMPZ  => (jump_builder(true,  false,  ZERO),  TwoRegistersOrLongImmediate, AB),
+            Self::RJMPNZ => (jump_builder(true,  true, ZERO),  TwoRegistersOrLongImmediate, AB),
+            Self::RJMPC  => (jump_builder(true,  false,  CARRY), TwoRegistersOrLongImmediate, AB),
+            Self::RJMPNC => (jump_builder(true,  true, CARRY), TwoRegistersOrLongImmediate, AB),
             
-            Self::RET     => (0b01010000, NoParams, AB),
-            Self::CALL    => (0b01001001, TwoRegistersOrLongImmediate, AB),
-            Self::RCALL   => (0b01001011, TwoRegistersOrLongImmediate, AB),
-            Self::CALLZ   => (call_builder(false, true,  ZERO),  TwoRegistersOrLongImmediate, AB),
-            Self::CALLNZ  => (call_builder(false, false, ZERO),  TwoRegistersOrLongImmediate, AB),
-            Self::CALLC   => (call_builder(false, true,  CARRY), TwoRegistersOrLongImmediate, AB),
-            Self::CALLNC  => (call_builder(false, false, CARRY), TwoRegistersOrLongImmediate, AB),
-            Self::RCALLZ  => (call_builder(true,  true,  ZERO),  TwoRegistersOrLongImmediate, AB),
-            Self::RCALLNZ => (call_builder(true,  false, ZERO),  TwoRegistersOrLongImmediate, AB),
-            Self::RCALLC  => (call_builder(true,  true,  CARRY), TwoRegistersOrLongImmediate, AB),
-            Self::RCALLNC => (call_builder(true,  false, CARRY), TwoRegistersOrLongImmediate, AB),
+            Self::CALL    => (0b01000101, TwoRegistersOrLongImmediate, AB),
+            Self::RCALL   => (0b01000111, TwoRegistersOrLongImmediate, AB),
+            Self::CALLZ   => (call_builder(false, false,  ZERO),  TwoRegistersOrLongImmediate, AB),
+            Self::CALLNZ  => (call_builder(false, true, ZERO),  TwoRegistersOrLongImmediate, AB),
+            Self::CALLC   => (call_builder(false, false,  CARRY), TwoRegistersOrLongImmediate, AB),
+            Self::CALLNC  => (call_builder(false, true, CARRY), TwoRegistersOrLongImmediate, AB),
+            Self::RCALLZ  => (call_builder(true,  false,  ZERO),  TwoRegistersOrLongImmediate, AB),
+            Self::RCALLNZ => (call_builder(true,  true, ZERO),  TwoRegistersOrLongImmediate, AB),
+            Self::RCALLC  => (call_builder(true,  false,  CARRY), TwoRegistersOrLongImmediate, AB),
+            Self::RCALLNC => (call_builder(true,  true, CARRY), TwoRegistersOrLongImmediate, AB),
         }
     }
     
