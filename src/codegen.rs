@@ -218,8 +218,8 @@ mod tests {
     
     #[test]
     fn db() {
-        let bytes = assemble_string("array: .db 0 1 array 3 4");
-        assert_eq!(bytes, vec![0, 1, 0, 0, 3, 4]);
+        let bytes = assemble_string("array: .db 0 1 array \"hello\" 3 4");
+        assert_eq!(bytes, vec![0, 1, 0, 0, b'h', b'e', b'l', b'l', b'o', 3, 4]);
     }
     
     #[test]

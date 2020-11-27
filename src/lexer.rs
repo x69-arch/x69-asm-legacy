@@ -2,6 +2,7 @@
 pub enum Token<'a> {
     Ident(&'a str),
     Label(&'a str),
+    String(&'a str),
     Directive(&'a str),
     Immediate(&'a str),
     Register(&'a str),
@@ -77,7 +78,16 @@ impl<'a> Iterator for Lexer<'a> {
                 } else {
                     (Token::Unknown(self.remain), "")
                 }
-            }
+            },
+            
+            Some((_, '"')) => {
+                let (take, remain) = take_while(&self.remain[1..], |c| c != '"');
+                if let Some('"') = remain.chars().next() {
+                    (Token::String(take), &remain[1..])
+                } else {
+                    (Token::Unknown(self.remain), "")
+                }
+            },
             
             Some((_, c)) if label_chars(c) => {
                 let (string, remain) = take_while(self.remain, label_chars);

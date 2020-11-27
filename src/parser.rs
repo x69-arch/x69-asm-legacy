@@ -194,6 +194,7 @@ pub fn parse(source: &str) -> (Vec<Line>, Vec<Log>) {
                             match lexer.next() {
                                 Some(Token::Immediate(byte)) => data_bytes.push(DataByte::Byte(make_int!(byte, u8))),
                                 Some(Token::Ident(l)) => data_bytes.push(DataByte::Label(l.to_owned())),
+                                Some(Token::String(s)) => data_bytes.extend(s.as_bytes().iter().map(|b| DataByte::Byte(*b))),
                                 Some(token) => log_error!("unexpected token in db field: {:?}", token),
                                 None => {
                                     if data_bytes.is_empty() {
