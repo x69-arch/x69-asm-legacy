@@ -1,4 +1,4 @@
-use crate::lexer::{Lexer, Token};
+use crate::lexer::Token;
 use crate::codegen::Register;
 use crate::instruction::{Instruction, OperandMode};
 
@@ -95,7 +95,7 @@ pub fn parse(source: &str) -> (Vec<Line>, Vec<Log>) {
                 logs.push(Log::Error(line, format!($msg, $($params),+)));
                 continue;
             }};
-        };
+        }
         // Creates a register or logs and error and returns to start
         macro_rules! make_register {
             ($reg:ident) => {{
@@ -148,10 +148,10 @@ pub fn parse(source: &str) -> (Vec<Line>, Vec<Log>) {
                             $int::from_str_radix(&$im[offset..], 2)
                         },
                         
-                        _ => $int::from_str_radix($im, 10),
+                        _ => $im.parse::<$int>(),
                     }
                 } else {
-                    $int::from_str_radix($im, 10)
+                    $im.parse::<$int>()
                 };
                 
                 match parsed {
@@ -161,7 +161,7 @@ pub fn parse(source: &str) -> (Vec<Line>, Vec<Log>) {
             }}
         }
         
-        let mut lexer = Lexer::new(source);
+        let mut lexer = crate::lexer::new_lexer(source);
         let mut first_token = lexer.next();
         
         // Parsing label

@@ -64,7 +64,7 @@ pub fn assemble_lines(lines: &[Line], logs: &mut Vec<Log>) -> Vec<u8> {
                     Register(Register, Register, Option<u8>),
                     LongImmidiate(u16),
                     Unresolved(String),
-                };
+                }
                 
                 let usage: Usage = match *params {
                     Parameters::None => Usage::Register(Register(0), Register(0), None),

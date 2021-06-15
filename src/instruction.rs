@@ -23,6 +23,7 @@ pub enum RegisterMap {
 }
 
 #[derive(Clone, Copy, Debug, ToFromString, Iter)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum Instruction {
     // ALU Operations
     NOP,
@@ -135,7 +136,7 @@ const fn call_builder(relative: bool, check_not: bool, alu_flag: u8) -> u8 {
     call
 }
 
-impl Instruction {    
+impl Instruction {
     #[inline(always)]
     pub fn assemble_info(&self) -> (u8, OperandMode, RegisterMap) {
         use OperandMode::*;
