@@ -14,17 +14,21 @@ impl Register {
     }
 }
 
-pub fn assemble_lines(lines: &[Line], logs: &mut Vec<Log>) -> Vec<u8> {
+pub fn assemble_lines(lines: &[Line]) -> (Vec<u8>, Vec<Log>) {
+    let mut logs = Vec::new();
+    
     let mut buffer = Vec::new();
     let mut link_table = std::collections::HashMap::<String, usize>::new();
     let mut unresolved = Vec::new();
     
     for line in lines {
+        let file_name = &line.origin;
+        
         match &line.data {
             // TODO: Create link table
             LineData::Label(name) => {
                 if let Some(_overriden_label) = link_table.insert(name.clone(), buffer.len()) {
-                    logs.push(Log::Error(line.line, format!("symbol {} declared multiple times", name)));
+                    logs.push(Log::Error(line.line, format!("symbol {} declared multiple times", name), file_name.clone()));
                 }
             },
             
@@ -32,11 +36,11 @@ pub fn assemble_lines(lines: &[Line], logs: &mut Vec<Log>) -> Vec<u8> {
                 match dir {
                     Directive::Line(offset) => {
                         if *offset < buffer.len() as u16 {
-                            logs.push(Log::Error(line.line, format!("line offset is less than current offset: {:x}", buffer.len())));
+                            logs.push(Log::Error(line.line, format!("line offset is less than current offset: {:x}", buffer.len()), file_name.clone()));
                         } else {
                             let padding = offset - buffer.len() as u16;
                             if padding % 2 == 1 {
-                                logs.push(Log::Warning(line.line, "line offset will not guarantee instruction alignment".to_owned()));
+                                logs.push(Log::Warning(line.line, "line offset will not guarantee instruction alignment".to_owned(), file_name.clone()));
                             }
                             buffer.resize(buffer.len() + padding as usize, 0);
                         }
@@ -47,7 +51,7 @@ pub fn assemble_lines(lines: &[Line], logs: &mut Vec<Log>) -> Vec<u8> {
                             match db {
                                 DataByte::Byte(byte) => buffer.push(*byte),
                                 DataByte::Label(label) => {
-                                    unresolved.push((label.clone(), buffer.len(), line.line));
+                                    unresolved.push((label.clone(), buffer.len(), line.line, file_name.clone()));
                                     buffer.push(0xDE);
                                     buffer.push(0xAD);
                                 }
@@ -105,7 +109,7 @@ pub fn assemble_lines(lines: &[Line], logs: &mut Vec<Log>) -> Vec<u8> {
                     Usage::Unresolved(label) => {
                         buffer.push(asm_info.0 | 0b10000000);
                         // Temporary data
-                        unresolved.push((label, buffer.len(), line.line));
+                        unresolved.push((label, buffer.len(), line.line, file_name.clone()));
                         buffer.push(0xDE);
                         buffer.push(0xAD);
                     },
@@ -122,25 +126,25 @@ pub fn assemble_lines(lines: &[Line], logs: &mut Vec<Log>) -> Vec<u8> {
             buffer[link.1] = lo;
             buffer[link.1 + 1] = hi;
         } else {
-            logs.push(Log::Error(link.2, format!("unresolved symbol: {}", link.0)));
+            // TODO: linker!
+            logs.push(Log::Error(link.2, format!("unresolved symbol: {} [PENDING LINKER]", link.0), link.3.clone()));
         }
     }
     
-    buffer
+    (buffer, logs)
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::parse;
+    use crate::parser::parse_raw;
     use crate::codegen::assemble_lines;
     fn assemble_string(source: &str) -> Vec<u8> {
-        let (lines, mut logs) = parse(source);
-        let assembly = assemble_lines(&lines, &mut logs);
+        let (lines, parse_logs) = parse_raw(source, None);
+        let (assembly, asm_logs) = assemble_lines(&lines);
         
         // Print out for debugging purposes
-        for log in logs {
-            println!("{}", log);
-        }
+        parse_logs.iter().for_each(|log| println!("{}", log));
+        asm_logs.iter().for_each(|log| println!("{}", log));
         
         assembly
     }

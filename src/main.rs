@@ -3,92 +3,81 @@ mod instruction;
 mod lexer;
 mod parser;
 
-use std::fs::File;
-use std::io::{Read, Write};
+use clap::{AppSettings, App, Arg};
+use parser::{Log, ParseOptions, parse_file};
+use codegen::assemble_lines;
 
-fn usage() {
-    println!("The official x69 assembler!");
-    println!("Usage: <input_file> [-o <output_file>]");
-    println!("--help: Print this help message");
-    println!("--list: List all instructions");
+use std::io::Write;
+use std::fs::File;
+use std::path::{Path, PathBuf};
+use std::process;
+
+fn print_logs_abort(logs: &[Log]) {
+    let mut fatal = false;
+    for log in logs {
+        eprintln!("{}", log);
+        fatal |= log.is_error();
+    }
+    if fatal {
+        eprintln!("Aborting due to previous errors...");
+        process::exit(1);
+    }
+}
+fn make_log_and_abort(message: String, origin: &Path) -> ! {
+    print_logs_abort(&[Log::IOError(message, origin.to_owned().into_os_string().into_string().unwrap())]);
+    process::exit(1)
 }
 
 fn main() {
-    let args: Vec<_> = std::env::args().collect();
-    let mut output_file = None;
+    let color = if cfg!(feature = "no_color") {
+        AppSettings::ColorNever
+    } else {
+        AppSettings::ColorAuto
+    };
     
-    if let Some(output) = args.get(2) {
-        if output == "-o" {
-            if let Some(output) = args.get(3) {
-                output_file = Some(output.clone());
-            } else {
-                usage();
-                return;
-            }
-        } else {
-            usage();
-            return;
-        }
+    let arg_parse = App::new("Assembler")
+        .about("The official x69 assembler!")
+        .version(format!("v{}",env!("CARGO_PKG_VERSION")).as_str())
+        .setting(color)
+        .arg(Arg::new("FILE")
+            // .required(true)
+            .required_unless_present("list")
+            .about("Input file to be assembled")
+            .takes_value(true))
+        .arg(Arg::new("output")
+            .short('o')
+            .long("output")
+            .value_name("FILE")
+            .takes_value(true))
+        .arg(Arg::new("list")
+            .about("Lists all available instructions")
+            .long("list"))
+        .get_matches();
+    
+    if arg_parse.is_present("list") {
+        instruction::print_all();
+        return;
     }
     
-    if let Some(input_file) = args.get(1) {
-        match input_file.as_str() {
-            "--help" => usage(),
-            "--list" => instruction::print_all(),
-            
-            _ => {
-                // Load file and stuff
-                let file = File::open(input_file);
-                match file {
-                    Ok(mut file) => {
-                        let mut contents = String::new();
-                        file.read_to_string(&mut contents).expect("Failed to read from file");
-                        
-                        let output_file = match output_file {
-                            Some(file_name) => file_name,
-                            None => {
-                                let path = std::path::PathBuf::from(input_file);
-                                path.with_extension("o").to_str().unwrap().to_owned()
-                            }
-                        };
-                        
-                        // Code assembling
-                        // Code parsing
-                        let (lines, mut logs) = parser::parse(&contents);
-                        let assembly = codegen::assemble_lines(&lines, &mut logs);
-                        
-                        if !logs.is_empty() {
-                            println!("{} message{} generated:", logs.len(), match logs.len() { 1 => "", _ => "s"});
-                            let mut error = false;
-                            for log in logs {
-                                println!("{}", log);
-                                error |= log.is_error();
-                            }
-                            if error {
-                                println!("Aborting due to previous errors...");
-                                return;
-                            }
-                        }
-                        
-                        let output = File::create(&output_file);
-                        match output {
-                            Ok(mut output) => {
-                                output.write_all(assembly.as_slice()).expect("Failed to write binary to file");
-                            },
-                            
-                            Err(err) => {
-                                println!("Could not open file: \"{}\" for writing. {}", output_file, err);
-                            }
-                        }
-                    },
-                    
-                    Err(err) => {
-                        println!("Could not open file: \"{}\" for reading. {}", input_file, err);
-                    }
-                }
-            }
-        }
-    } else {
-        usage();
+    let file_name = Path::new(arg_parse.value_of("FILE").unwrap());
+    
+    let parse_options = ParseOptions {
+        origin: file_name.to_owned(),
+        include_paths: vec![]
+    };
+    
+    let (lines, logs) = parse_file(&parse_options);
+    print_logs_abort(&logs);
+    
+    let (asm, logs) = assemble_lines(&lines);
+    print_logs_abort(&logs);
+    
+    let output_name = arg_parse.value_of("output").map(PathBuf::from).unwrap_or_else(|| file_name.with_extension("o"));
+    let mut output = match File::create(&output_name) {
+        Ok(file) => file,
+        Err(err) => make_log_and_abort(err.to_string(), &output_name),
+    };
+    if let Err(err) = output.write_all(&asm) {
+        make_log_and_abort(err.to_string(), &output_name);
     }
 }

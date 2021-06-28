@@ -32,6 +32,7 @@ pub enum Token<'a> {
     Error,
 }
 
+#[inline(always)]
 pub fn new_lexer(source: &'_ str) -> logos::Lexer<'_, Token<'_>> {
     Token::lexer(source)
 }
